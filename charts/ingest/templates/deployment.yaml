@@ -1,0 +1,125 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "ingest.fullname" . }}
+  labels:
+    {{- include "ingest.labels" . | nindent 4 }}
+spec:
+  {{- if not .Values.autoscaling.enabled }}
+  replicas: {{ .Values.replicaCount }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "ingest.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+        {{- with .Values.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      labels:
+        {{- include "ingest.selectorLabels" . | nindent 8 }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "ingest.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: {{ .Chart.Name }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.service.targetPort | default 8003 }}
+              protocol: TCP
+          livenessProbe:
+            {{- toYaml .Values.healthChecks.livenessProbe | nindent 12 }}
+          readinessProbe:
+            {{- toYaml .Values.healthChecks.readinessProbe | nindent 12 }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          env:
+            # Environment variables from ConfigMap
+            {{- range $key, $value := .Values.env }}
+            - name: {{ $key }}
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "ingest.fullname" $ }}-config
+                  key: {{ $key }}
+            {{- end }}
+            
+            # Environment variables from Secrets
+            {{- if .Values.secrets.databaseUrl }}
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.secrets.databaseUrl.name }}
+                  key: {{ .Values.secrets.databaseUrl.key }}
+            {{- end }}
+            
+            {{- if .Values.secrets.rabbitmqUrl }}
+            - name: RABBITMQ_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.secrets.rabbitmqUrl.name }}
+                  key: {{ .Values.secrets.rabbitmqUrl.key }}
+            {{- end }}
+            
+            {{- if .Values.secrets.awsCredentials }}
+            - name: AWS_ACCESS_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.secrets.awsCredentials.name }}
+                  key: {{ .Values.secrets.awsCredentials.keys.accessKeyId }}
+            - name: AWS_SECRET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.secrets.awsCredentials.name }}
+                  key: {{ .Values.secrets.awsCredentials.keys.secretAccessKey }}
+            {{- end }}
+            
+            {{- if .Values.secrets.s3Config }}
+            - name: S3_BUCKET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.secrets.s3Config.name }}
+                  key: {{ .Values.secrets.s3Config.keys.bucket }}
+            {{- if .Values.secrets.s3Config.keys.endpointUrl }}
+            - name: S3_ENDPOINT_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.secrets.s3Config.name }}
+                  key: {{ .Values.secrets.s3Config.keys.endpointUrl }}
+            {{- end }}
+            {{- end }}
+          
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+            - name: logs
+              mountPath: /services/ingest/logs
+      
+      volumes:
+        - name: tmp
+          emptyDir: {}
+        - name: logs
+          emptyDir: {}
+      
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }} 

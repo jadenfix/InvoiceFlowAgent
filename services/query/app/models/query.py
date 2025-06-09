@@ -12,6 +12,7 @@ class ParseResponse(BaseModel):
     city: str = Field(..., min_length=1, description="City name")
     max_price: float = Field(..., gt=0, description="Maximum price")
     confidence: float = Field(..., ge=0, le=1, description="Parse confidence score")
+    cache_hit: bool = Field(False, description="Whether result was retrieved from cache")
     
     @validator('city')
     def normalize_city(cls, v):
