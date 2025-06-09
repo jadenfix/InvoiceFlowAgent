@@ -1,0 +1,252 @@
+# Default values for invoiceflow-auth
+# This is a YAML-formatted file.
+
+# Global settings
+global:
+  imageRegistry: ""
+  imagePullSecrets: []
+
+# Image configuration
+image:
+  registry: ghcr.io
+  repository: jadenfix/invoiceflow-auth
+  tag: "1.0.0"
+  pullPolicy: IfNotPresent
+
+# Service configuration
+service:
+  type: ClusterIP
+  port: 8000
+  targetPort: 8000
+  annotations: {}
+
+# Ingress configuration
+ingress:
+  enabled: false
+  className: "nginx"
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+  hosts:
+    - host: auth.invoiceflow.local
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - secretName: invoiceflow-auth-tls
+      hosts:
+        - auth.invoiceflow.local
+
+# Deployment configuration
+replicaCount: 2
+
+# Resource limits and requests
+resources:
+  limits:
+    cpu: 500m
+    memory: 512Mi
+  requests:
+    cpu: 100m
+    memory: 128Mi
+
+# Auto-scaling
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 70
+  targetMemoryUtilizationPercentage: 80
+
+# Pod configuration
+podAnnotations: {}
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  fsGroup: 1000
+
+securityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+    - ALL
+  readOnlyRootFilesystem: true
+  runAsNonRoot: true
+  runAsUser: 1000
+
+# Node selection
+nodeSelector: {}
+tolerations: []
+affinity:
+  podAntiAffinity:
+    preferredDuringSchedulingIgnoredDuringExecution:
+    - weight: 100
+      podAffinityTerm:
+        labelSelector:
+          matchExpressions:
+          - key: app.kubernetes.io/name
+            operator: In
+            values:
+            - invoiceflow-auth
+        topologyKey: kubernetes.io/hostname
+
+# Probes configuration
+probes:
+  liveness:
+    enabled: true
+    httpGet:
+      path: /healthz
+      port: http
+    initialDelaySeconds: 30
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 3
+    successThreshold: 1
+
+  readiness:
+    enabled: true
+    httpGet:
+      path: /readyz
+      port: http
+    initialDelaySeconds: 5
+    periodSeconds: 5
+    timeoutSeconds: 3
+    failureThreshold: 3
+    successThreshold: 1
+
+  startup:
+    enabled: true
+    httpGet:
+      path: /healthz
+      port: http
+    initialDelaySeconds: 10
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 30
+    successThreshold: 1
+
+# Environment configuration
+environment: "development"
+
+# Application configuration
+config:
+  # Server settings
+  host: "0.0.0.0"
+  port: 8000
+  debug: false
+  reload: false
+  
+  # Security settings
+  passwordMinLength: 8
+  bcryptRounds: 12
+  jwtExpirationMinutes: 15
+  jwtAlgorithm: "HS256"
+  
+  # Rate limiting
+  rateLimitAttempts: 5
+  rateLimitWindowMinutes: 10
+  
+  # Logging
+  logLevel: "INFO"
+  enableMetrics: true
+
+# Secrets configuration
+secrets:
+  # JWT secret key (required)
+  jwtSecret:
+    # Use existing secret
+    existingSecret: ""
+    existingSecretKey: "jwt-secret"
+    # Or generate new secret
+    generate: true
+    
+  # Database URL (required)
+  databaseUrl:
+    existingSecret: ""
+    existingSecretKey: "database-url"
+    # Default connection string (override in environment-specific values)
+    value: "postgresql://invoiceflow:password@localhost:5432/invoiceflow_auth"
+
+# Service account
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+# Pod disruption budget
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 1
+
+# Network policies
+networkPolicy:
+  enabled: false
+  ingress:
+    - from:
+      - namespaceSelector:
+          matchLabels:
+            name: invoiceflow-frontend
+      - namespaceSelector:
+          matchLabels:
+            name: invoiceflow-gateway
+      ports:
+      - protocol: TCP
+        port: 8000
+
+# Monitoring
+monitoring:
+  enabled: false
+  serviceMonitor:
+    enabled: false
+    interval: 30s
+    path: /metrics
+    labels: {}
+    annotations: {}
+
+# External dependencies
+postgresql:
+  enabled: false
+  # If enabled, this would deploy PostgreSQL alongside the service
+  # In production, use external managed database
+  auth:
+    postgresPassword: "invoiceflow-password"
+    database: "invoiceflow_auth"
+  primary:
+    resources:
+      requests:
+        memory: 256Mi
+        cpu: 250m
+
+# Additional volumes
+volumes: []
+# - name: config-volume
+#   configMap:
+#     name: my-config
+
+volumeMounts: []
+# - name: config-volume
+#   mountPath: /app/config
+#   readOnly: true
+
+# Additional environment variables
+extraEnvVars: []
+# - name: CUSTOM_VAR
+#   value: "custom-value"
+
+extraEnvVarsSecret: ""
+extraEnvVarsConfigMap: ""
+
+# Init containers
+initContainers: []
+# - name: wait-for-db
+#   image: postgres:13
+#   command: ['sh', '-c', 'until pg_isready -h db -p 5432; do sleep 1; done']
+
+# Sidecar containers
+sidecars: []
+
+# Additional labels
+labels: {}
+
+# Additional annotations for all resources
+annotations: {} 

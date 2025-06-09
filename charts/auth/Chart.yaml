@@ -1,0 +1,23 @@
+apiVersion: v2
+name: invoiceflow-auth
+description: A Helm chart for InvoiceFlow Authentication Service
+version: 1.0.0
+appVersion: "1.0.0"
+type: application
+
+keywords:
+  - authentication
+  - jwt
+  - fastapi
+  - invoiceflow
+
+home: https://github.com/jadenfix/InvoiceFlowAgent
+sources:
+  - https://github.com/jadenfix/InvoiceFlowAgent
+
+maintainers:
+  - name: InvoiceFlow Team
+    email: team@invoiceflow.com
+
+annotations:
+  category: Authentication 
