@@ -1,0 +1,16 @@
+apiVersion: v2
+name: match
+description: A Helm chart for InvoiceFlow Matching Service
+type: application
+version: 0.1.0
+appVersion: "1.0.0"
+keywords:
+  - invoiceflow
+  - matching
+  - microservice
+home: https://github.com/jadenfix/InvoiceFlowAgent
+sources:
+  - https://github.com/jadenfix/InvoiceFlowAgent
+maintainers:
+  - name: InvoiceFlow Team
+    email: team@invoiceflow.io 

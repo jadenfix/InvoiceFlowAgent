@@ -116,6 +116,86 @@ jobs:
           file: services/auth/coverage.xml
           flags: auth-service
 
+  # Match Service Testing  
+  match-service-tests:
+    name: Match Service Tests
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_PASSWORD: testpassword
+          POSTGRES_USER: testuser
+          POSTGRES_DB: testdb
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+      
+      rabbitmq:
+        image: rabbitmq:3-management
+        ports:
+          - 5672:5672
+          - 15672:15672
+        options: >-
+          --health-cmd "rabbitmq-diagnostics -q ping"
+          --health-interval 30s
+          --health-timeout 30s
+          --health-retries 3
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Cache Python dependencies
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-match-${{ hashFiles('services/match/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-match-
+
+      - name: Install dependencies
+        run: |
+          cd services/match
+          pip install -r requirements.txt
+
+      - name: Lint match service code
+        run: |
+          cd services/match
+          python -m flake8 app/ --max-line-length=100 --extend-ignore=E203,W503
+          python -m black app/ --check --diff
+          python -m isort app/ --check-only --diff
+
+      - name: Type check match service
+        run: |
+          cd services/match
+          python -m mypy app/ --ignore-missing-imports
+
+      - name: Run match service tests
+        env:
+          DATABASE_URL: postgresql+asyncpg://testuser:testpassword@localhost:5432/testdb
+          RABBITMQ_URL: amqp://guest:guest@localhost:5672/
+          MATCH_AMOUNT_TOLERANCE: "0.02"
+          LOG_LEVEL: DEBUG
+        run: |
+          cd services/match
+          python -m pytest tests/ -v --cov=app --cov-report=xml --cov-report=term-missing
+
+      - name: Upload match service coverage
+        uses: codecov/codecov-action@v3
+        with:
+          file: services/match/coverage.xml
+          flags: match-service
+
   # Frontend Testing
   frontend-tests:
     name: Frontend Tests
