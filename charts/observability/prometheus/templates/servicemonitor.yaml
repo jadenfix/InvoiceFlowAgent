@@ -1,0 +1,18 @@
+{{- if .Values.serviceMonitors.enabled }}
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ include "prometheus.fullname" . }}-services
+  labels:
+    release: {{ .Release.Name }}
+spec:
+  selector:
+    matchExpressions:
+      - {key: app.kubernetes.io/name, operator: In, values: ["exception-review", "erp-integration", "billing"]}
+  namespaceSelector:
+    any: true
+  endpoints:
+    - port: http
+      path: /metrics
+      interval: 30s
+{{- end }} 

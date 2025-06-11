@@ -1,0 +1,23 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: invoiceflow-default-dashboard
+  labels:
+    grafana-dashboard: "true"
+data:
+  dashboard.json: |
+    {
+      "title": "InvoiceFlow API Latency",
+      "panels": [
+        {
+          "type": "heatmap",
+          "title": "Latency (ms)",
+          "targets": [
+            {
+              "expr": "histogram_quantile(0.95, sum(rate(http_request_latency_seconds_bucket[5m])) by (le, service))",
+              "format": "heatmap"
+            }
+          ]
+        }
+      ]
+    } 

@@ -1,0 +1,18 @@
+name: Observability Charts CI
+on:
+  push:
+    paths:
+      - 'charts/observability/**'
+      - '.github/workflows/observability-ci.yml'
+
+jobs:
+  helm-lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install helm
+        run: sudo snap install helm --classic
+      - name: Lint charts
+        run: |
+          helm lint charts/observability/prometheus
+          helm lint charts/observability/grafana 
