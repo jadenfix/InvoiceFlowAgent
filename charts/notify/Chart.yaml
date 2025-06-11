@@ -1,0 +1,16 @@
+apiVersion: v2
+name: notify
+description: A Helm chart for Invoice Notification Service
+type: application
+version: 1.0.0
+appVersion: "1.0.0"
+keywords:
+  - notifications
+  - email
+  - sms
+  - invoices
+  - celery
+home: https://github.com/jadenfix/InvoiceFlowAgent
+maintainers:
+  - name: InvoiceFlow Team
+    email: team@invoiceflow.com 

@@ -1,0 +1,9 @@
+DATABASE_URL=postgresql://invoice_user:password@localhost:5432/invoice_db
+CELERY_BROKER_URL=redis://localhost:6379/0
+CELERY_RESULT_BACKEND=redis://localhost:6379/0
+SENDGRID_API_KEY=your_sendgrid_api_key_here
+TWILIO_ACCOUNT_SID=your_twilio_account_sid_here
+TWILIO_AUTH_TOKEN=your_twilio_auth_token_here
+TWILIO_FROM_NUMBER=+15551234567
+REVIEW_NOTIFICATION_INTERVAL=30
+NOTIFICATION_RECIPIENTS=admin@example.com,finance@example.com,+15551234567 

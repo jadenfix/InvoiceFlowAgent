@@ -1,0 +1,184 @@
+## Notification Service Configuration
+
+# Image configuration
+image:
+  repository: invoice-notify
+  tag: "latest"
+  pullPolicy: IfNotPresent
+
+# Service configuration
+service:
+  type: ClusterIP
+  port: 8006
+  targetPort: 8006
+
+# Ingress configuration
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+  hosts:
+    - host: notify.invoice.local
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
+
+# Resource limits and requests
+resources:
+  limits:
+    cpu: 500m
+    memory: 512Mi
+  requests:
+    cpu: 200m
+    memory: 256Mi
+
+# Horizontal Pod Autoscaler
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 70
+  targetMemoryUtilizationPercentage: 80
+
+# Node selection
+nodeSelector: {}
+tolerations: []
+affinity: {}
+
+# Pod disruption budget
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 1
+
+# Health checks
+healthCheck:
+  livenessProbe:
+    httpGet:
+      path: /health/live
+      port: 8006
+    initialDelaySeconds: 30
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 3
+  readinessProbe:
+    httpGet:
+      path: /health/ready
+      port: 8006
+    initialDelaySeconds: 10
+    periodSeconds: 5
+    timeoutSeconds: 5
+    failureThreshold: 3
+
+# Environment variables (from secrets/configmaps)
+env:
+  DATABASE_URL:
+    valueFrom:
+      secretKeyRef:
+        name: notify-secrets
+        key: database-url
+  CELERY_BROKER_URL:
+    valueFrom:
+      secretKeyRef:
+        name: notify-secrets
+        key: celery-broker-url
+  CELERY_RESULT_BACKEND:
+    valueFrom:
+      secretKeyRef:
+        name: notify-secrets
+        key: celery-result-backend
+  SENDGRID_API_KEY:
+    valueFrom:
+      secretKeyRef:
+        name: notify-secrets
+        key: sendgrid-api-key
+  TWILIO_ACCOUNT_SID:
+    valueFrom:
+      secretKeyRef:
+        name: notify-secrets
+        key: twilio-account-sid
+  TWILIO_AUTH_TOKEN:
+    valueFrom:
+      secretKeyRef:
+        name: notify-secrets
+        key: twilio-auth-token
+  TWILIO_FROM_NUMBER:
+    valueFrom:
+      secretKeyRef:
+        name: notify-secrets
+        key: twilio-from-number
+  NOTIFICATION_RECIPIENTS:
+    valueFrom:
+      configMapKeyRef:
+        name: notify-config
+        key: notification-recipients
+  REVIEW_NOTIFICATION_INTERVAL:
+    valueFrom:
+      configMapKeyRef:
+        name: notify-config
+        key: review-notification-interval
+
+# Security context
+securityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  runAsGroup: 1000
+  fsGroup: 1000
+
+# Pod security context
+podSecurityContext:
+  fsGroup: 1000
+
+# Worker configuration
+worker:
+  enabled: true
+  replicaCount: 2
+  resources:
+    limits:
+      cpu: 300m
+      memory: 256Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi
+
+# Beat scheduler configuration
+beat:
+  enabled: true
+  replicaCount: 1
+  resources:
+    limits:
+      cpu: 200m
+      memory: 128Mi
+    requests:
+      cpu: 50m
+      memory: 64Mi
+
+# Service monitor for Prometheus
+serviceMonitor:
+  enabled: false
+  interval: 30s
+  path: /metrics
+
+# Redis configuration (if deploying with chart)
+redis:
+  enabled: false
+  auth:
+    enabled: true
+    password: "redis-password"
+  master:
+    persistence:
+      enabled: true
+      size: 8Gi
+
+# PostgreSQL configuration (if deploying with chart)
+postgresql:
+  enabled: false
+  auth:
+    postgresPassword: "postgres-password"
+    username: "invoice_user"
+    password: "invoice-password"
+    database: "invoice_db"
+  primary:
+    persistence:
+      enabled: true
+      size: 20Gi 
