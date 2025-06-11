@@ -8,7 +8,7 @@ import time
 
 from .core.config import settings
 from .core.logging import setup_logging, get_logger, set_request_id
-from .api import query, health
+from .api import query, health, explain
 
 # Setup logging
 setup_logging()
@@ -90,6 +90,12 @@ app.include_router(
     health.router,
     prefix="",
     tags=["Health"]
+)
+
+app.include_router(
+    explain.router,
+    prefix="",
+    tags=["Explain"]
 )
 
 
