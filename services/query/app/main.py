@@ -100,6 +100,18 @@ async def startup_event():
     logger.info(f"Debug mode: {settings.debug}")
     logger.info(f"Redis URL: {settings.redis_url}")
     logger.info(f"OpenSearch: {settings.opensearch_host}:{settings.opensearch_port}")
+    logger.info(f"Anthropic Model: {settings.anthropic_model}")
+    logger.info(f"Tier 2 Confidence Threshold: {settings.tier2_confidence_threshold}")
+    if settings.anthropic_api_key:
+        logger.info("Anthropic API key configured - Tier 2 fallback enabled")
+    else:
+        logger.warning("Anthropic API key not configured - Tier 2 fallback disabled")
+    logger.info(f"Anthropic Model: {settings.anthropic_model}")
+    logger.info(f"Tier 2 Confidence Threshold: {settings.tier2_confidence_threshold}")
+    if settings.anthropic_api_key:
+        logger.info("Anthropic API key configured - Tier 2 fallback enabled")
+    else:
+        logger.warning("Anthropic API key not configured - Tier 2 fallback disabled")
 
 
 @app.on_event("shutdown")

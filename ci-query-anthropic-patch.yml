@@ -1,0 +1,92 @@
+# GitHub Actions CI patch for Query Service with Anthropic integration
+# Add this job to your existing .github/workflows/ci.yml
+
+  test-query-anthropic:
+    name: Test Query Service with Anthropic
+    runs-on: ubuntu-latest
+    
+    services:
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+          
+      opensearch:
+        image: opensearchproject/opensearch:2.3.0
+        ports:
+          - 9200:9200
+        env:
+          discovery.type: single-node
+          DISABLE_SECURITY_PLUGIN: true
+        options: >-
+          --health-cmd "curl -f http://localhost:9200/_cluster/health"
+          --health-interval 30s
+          --health-timeout 10s
+          --health-retries 5
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+          
+      - name: Cache Python dependencies
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-query-${{ hashFiles('services/query/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-query-
+            
+      - name: Install dependencies
+        working-directory: services/query
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          
+      - name: Download spaCy model
+        run: python -m spacy download en_core_web_sm
+        
+      - name: Lint with flake8
+        working-directory: services/query
+        run: |
+          pip install flake8
+          flake8 app/ tests/ --count --select=E9,F63,F7,F82 --show-source --statistics
+          flake8 app/ tests/ --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+          
+      - name: Type check with mypy
+        working-directory: services/query
+        run: |
+          pip install mypy
+          mypy app/ --ignore-missing-imports
+          
+      - name: Run tests with pytest
+        working-directory: services/query
+        env:
+          REDIS_URL: redis://localhost:6379/0
+          OPENSEARCH_HOST: localhost
+          OPENSEARCH_PORT: 9200
+          ANTHROPIC_API_KEY: dummy-key-for-testing
+          ANTHROPIC_MODEL: claude-2
+        run: |
+          pytest tests/ -v --cov=app --cov-report=xml --cov-report=term-missing
+          
+      - name: Check test coverage
+        working-directory: services/query
+        run: |
+          coverage report --fail-under=95
+          
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v3
+        with:
+          file: services/query/coverage.xml
+          flags: query-service
+          name: query-service-coverage 

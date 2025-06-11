@@ -36,6 +36,16 @@ class Settings(BaseSettings):
     spacy_model: str = "en_core_web_sm"
     max_query_length: int = 500
     default_max_results: int = 10
+    tier2_confidence_threshold: float = 0.7
+    
+    # Anthropic Configuration for Tier 2 NLU Fallback
+    anthropic_api_key: Optional[str] = None
+    anthropic_model: str = "claude-2"
+    anthropic_max_tokens: int = 500
+    anthropic_temperature: float = 0.0
+    anthropic_max_retries: int = 2
+    anthropic_retry_delay: float = 1.0
+    anthropic_retry_backoff: float = 2.0
     
     # Logging
     log_level: str = "INFO"

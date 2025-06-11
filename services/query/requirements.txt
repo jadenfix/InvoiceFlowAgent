@@ -1,9 +1,11 @@
 fastapi==0.104.1
 uvicorn[standard]==0.24.0
 pydantic==2.5.0
+pydantic-settings==2.1.0
 redis==5.0.1
 opensearch-py==2.4.2
 spacy==3.7.2
+anthropic==0.8.1
 # hashlib is built into Python
 pytest==7.4.3
 pytest-asyncio==0.21.1

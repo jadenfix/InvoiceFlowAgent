@@ -1,0 +1,122 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "query.fullname" . }}
+  labels:
+    {{- include "query.labels" . | nindent 4 }}
+spec:
+  {{- if not .Values.autoscaling.enabled }}
+  replicas: {{ .Values.replicaCount }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "query.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        {{- include "query.selectorLabels" . | nindent 8 }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "query.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: {{ .Chart.Name }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.env.PORT }}
+              protocol: TCP
+          env:
+            # Application settings
+            - name: DEBUG
+              value: {{ .Values.env.DEBUG | quote }}
+            - name: HOST
+              value: {{ .Values.env.HOST | quote }}
+            - name: PORT
+              value: {{ .Values.env.PORT | quote }}
+            
+            # Redis Cache
+            - name: REDIS_URL
+              value: {{ .Values.env.REDIS_URL | quote }}
+            - name: CACHE_TTL
+              value: {{ .Values.env.CACHE_TTL | quote }}
+            
+            # OpenSearch
+            - name: OPENSEARCH_HOST
+              value: {{ .Values.env.OPENSEARCH_HOST | quote }}
+            - name: OPENSEARCH_PORT
+              value: {{ .Values.env.OPENSEARCH_PORT | quote }}
+            - name: OPENSEARCH_SCHEME
+              value: {{ .Values.env.OPENSEARCH_SCHEME | quote }}
+            - name: OPENSEARCH_USE_SSL
+              value: {{ .Values.env.OPENSEARCH_USE_SSL | quote }}
+            - name: OPENSEARCH_VERIFY_CERTS
+              value: {{ .Values.env.OPENSEARCH_VERIFY_CERTS | quote }}
+            
+            # Query processing
+            - name: SPACY_MODEL
+              value: {{ .Values.env.SPACY_MODEL | quote }}
+            - name: MAX_QUERY_LENGTH
+              value: {{ .Values.env.MAX_QUERY_LENGTH | quote }}
+            - name: DEFAULT_MAX_RESULTS
+              value: {{ .Values.env.DEFAULT_MAX_RESULTS | quote }}
+            - name: TIER2_CONFIDENCE_THRESHOLD
+              value: {{ .Values.env.TIER2_CONFIDENCE_THRESHOLD | quote }}
+            
+            # Anthropic Configuration
+            - name: ANTHROPIC_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.secrets.anthropic.name }}
+                  key: {{ .Values.secrets.anthropic.key }}
+            - name: ANTHROPIC_MODEL
+              value: {{ .Values.env.ANTHROPIC_MODEL | quote }}
+            - name: ANTHROPIC_MAX_TOKENS
+              value: {{ .Values.env.ANTHROPIC_MAX_TOKENS | quote }}
+            - name: ANTHROPIC_TEMPERATURE
+              value: {{ .Values.env.ANTHROPIC_TEMPERATURE | quote }}
+            - name: ANTHROPIC_MAX_RETRIES
+              value: {{ .Values.env.ANTHROPIC_MAX_RETRIES | quote }}
+            - name: ANTHROPIC_RETRY_DELAY
+              value: {{ .Values.env.ANTHROPIC_RETRY_DELAY | quote }}
+            - name: ANTHROPIC_RETRY_BACKOFF
+              value: {{ .Values.env.ANTHROPIC_RETRY_BACKOFF | quote }}
+            
+            # Logging
+            - name: LOG_LEVEL
+              value: {{ .Values.env.LOG_LEVEL | quote }}
+            - name: LOG_FORMAT
+              value: {{ .Values.env.LOG_FORMAT | quote }}
+          
+          {{- if .Values.healthcheck.enabled }}
+          livenessProbe:
+            {{- toYaml .Values.healthcheck.livenessProbe | nindent 12 }}
+          readinessProbe:
+            {{- toYaml .Values.healthcheck.readinessProbe | nindent 12 }}
+          {{- end }}
+          
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }} 
