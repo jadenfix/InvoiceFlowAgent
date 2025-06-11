@@ -158,6 +158,68 @@ Provides search and retrieval APIs with advanced filtering capabilities.
 ### 3. Processing Service (Port 8004)
 Processes uploaded files, extracts data, and updates search indices.
 
+### 4. Notification Service (Port 8006)
+
+Production-ready notification service that proactively alerts AP teams when invoices require manual review. Built with Celery, SendGrid, and Twilio for reliable multi-channel notifications.
+
+**Core Features:**
+- Multi-channel notifications (Email via SendGrid, SMS via Twilio)
+- Scheduled scanning for invoices needing review
+- Duplicate notification prevention with unique constraints
+- Retry logic with exponential backoff for rate limits
+- Comprehensive health monitoring and component status
+
+**Architecture Components:**
+- FastAPI API server with health endpoints
+- Celery worker for async notification processing
+- Celery beat scheduler for periodic scanning (configurable intervals)
+- Redis for task queue and result backend
+- PostgreSQL for notification audit trail
+
+**Health Endpoints:**
+- `GET /health/live` - Liveness probe
+- `GET /health/ready` - Readiness probe (checks DB + Redis + external APIs)
+- `GET /health/status` - Detailed component status
+- `GET /info` - Service configuration and capabilities
+
+**Notification Process:**
+1. Celery Beat schedules periodic scans (default: 30 minutes)
+2. Worker queries for invoices with `matched_status = 'NEEDS_REVIEW'`
+3. For each invoice, sends notifications to configured recipients
+4. Records notification status with unique constraint protection
+5. Handles failures with retry logic and error recording
+
+**Key Capabilities:**
+- Idempotent delivery (prevents duplicate notifications)
+- Invalid recipient handling (graceful skip and continue)
+- Rate limit management with exponential backoff
+- Rich HTML email templates with invoice details
+- SMS message optimization (160 character limit handling)
+- Kubernetes-native deployment with auto-scaling
+
+**Configuration:**
+```bash
+# Recipients (comma-separated emails and phone numbers)
+NOTIFICATION_RECIPIENTS=admin@example.com,finance@example.com,+15551234567
+
+# Scan interval in minutes
+REVIEW_NOTIFICATION_INTERVAL=30
+
+# External service credentials
+SENDGRID_API_KEY=your_sendgrid_key
+TWILIO_ACCOUNT_SID=your_twilio_sid
+TWILIO_AUTH_TOKEN=your_twilio_token
+```
+
+**Deployment:**
+- Docker containerization with multi-stage builds
+- Helm chart with HPA, PDB, and resource management
+- Auto-scaling (2-10 replicas based on CPU/memory)
+- Security contexts and non-root execution
+- Service mesh ready with comprehensive health probes
+
+[More details](services/notify/README.md)
+
 ## Day 4: Ingestion Service
 
 The ingestion service is a production-grade FastAPI application that handles file uploads with complete error handling, retry logic, and observability.
@@ -851,6 +913,68 @@ curl http://localhost:8004/explain/health
 
 [More details](services/query/README.md)
 
+### Notification Service (Port 8006)
+
+Production-ready notification service that proactively alerts AP teams when invoices require manual review. Built with Celery, SendGrid, and Twilio for reliable multi-channel notifications.
+
+**Core Features:**
+- Multi-channel notifications (Email via SendGrid, SMS via Twilio)
+- Scheduled scanning for invoices needing review
+- Duplicate notification prevention with unique constraints
+- Retry logic with exponential backoff for rate limits
+- Comprehensive health monitoring and component status
+
+**Architecture Components:**
+- FastAPI API server with health endpoints
+- Celery worker for async notification processing
+- Celery beat scheduler for periodic scanning (configurable intervals)
+- Redis for task queue and result backend
+- PostgreSQL for notification audit trail
+
+**Health Endpoints:**
+- `GET /health/live` - Liveness probe
+- `GET /health/ready` - Readiness probe (checks DB + Redis + external APIs)
+- `GET /health/status` - Detailed component status
+- `GET /info` - Service configuration and capabilities
+
+**Notification Process:**
+1. Celery Beat schedules periodic scans (default: 30 minutes)
+2. Worker queries for invoices with `matched_status = 'NEEDS_REVIEW'`
+3. For each invoice, sends notifications to configured recipients
+4. Records notification status with unique constraint protection
+5. Handles failures with retry logic and error recording
+
+**Key Capabilities:**
+- Idempotent delivery (prevents duplicate notifications)
+- Invalid recipient handling (graceful skip and continue)
+- Rate limit management with exponential backoff
+- Rich HTML email templates with invoice details
+- SMS message optimization (160 character limit handling)
+- Kubernetes-native deployment with auto-scaling
+
+**Configuration:**
+```bash
+# Recipients (comma-separated emails and phone numbers)
+NOTIFICATION_RECIPIENTS=admin@example.com,finance@example.com,+15551234567
+
+# Scan interval in minutes
+REVIEW_NOTIFICATION_INTERVAL=30
+
+# External service credentials
+SENDGRID_API_KEY=your_sendgrid_key
+TWILIO_ACCOUNT_SID=your_twilio_sid
+TWILIO_AUTH_TOKEN=your_twilio_token
+```
+
+**Deployment:**
+- Docker containerization with multi-stage builds
+- Helm chart with HPA, PDB, and resource management
+- Auto-scaling (2-10 replicas based on CPU/memory)
+- Security contexts and non-root execution
+- Service mesh ready with comprehensive health probes
+
+[More details](services/notify/README.md)
+
 ### Frontend (Port 3000)
 
 Modern React application with TypeScript, Tailwind CSS, and real-time features.
@@ -881,6 +1005,7 @@ InvoiceFlowAgent/
 │   ├── extract/         # Document extraction service
 │   ├── query/           # Query service with RAG explain
 │   ├── match/           # Invoice matching service
+│   ├── notify/          # Notification service
 │   └── e2e/             # End-to-end tests
 ├── frontend/             # React frontend application
 ├── charts/               # Helm charts for deployment
@@ -904,6 +1029,7 @@ make test-all
 # Run specific service tests  
 cd services/auth && python -m pytest
 cd services/query && python -m pytest
+cd services/notify && python -m pytest
 cd services/match && python -m pytest
 
 # Run E2E tests
