@@ -1,0 +1,19 @@
+apiVersion: v2
+name: exception
+description: Exception Review Service for Invoice Processing
+type: application
+version: 1.0.0
+appVersion: "1.0.0"
+home: https://github.com/jadenfix/InvoiceFlowAgent
+sources:
+  - https://github.com/jadenfix/InvoiceFlowAgent
+maintainers:
+  - name: InvoiceFlow Team
+    email: team@invoiceflow.com
+keywords:
+  - invoice
+  - exception
+  - review
+  - fastapi
+annotations:
+  category: Finance 

@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "exception.fullname" . }}-config
+  labels:
+    {{- include "exception.labels" . | nindent 4 }}
+data:
+  allow-origins: {{ .Values.config.allowOrigins | join "," | quote }}
+  default-page-size: {{ .Values.config.defaultPageSize | quote }}
+  max-page-size: {{ .Values.config.maxPageSize | quote }}
+  health-check-timeout: {{ .Values.config.healthCheckTimeout | quote }} 

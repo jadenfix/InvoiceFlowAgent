@@ -1,0 +1,437 @@
+name: Exception Service CI/CD
+
+on:
+  push:
+    branches: [ main, develop ]
+    paths:
+      - 'services/exception/**'
+      - 'frontend/src/exception/**'
+      - '.github/workflows/exception-service.yml'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'services/exception/**'
+      - 'frontend/src/exception/**'
+      - '.github/workflows/exception-service.yml'
+
+env:
+  PYTHON_VERSION: '3.11'
+  NODE_VERSION: '18'
+
+jobs:
+  # Backend Tests
+  backend-tests:
+    name: Backend Tests
+    runs-on: ubuntu-latest
+    
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: test_db
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+      
+      rabbitmq:
+        image: rabbitmq:3-management
+        env:
+          RABBITMQ_DEFAULT_USER: guest
+          RABBITMQ_DEFAULT_PASS: guest
+        options: >-
+          --health-cmd "rabbitmq-diagnostics -q ping"
+          --health-interval 30s
+          --health-timeout 30s
+          --health-retries 3
+        ports:
+          - 5672:5672
+          - 15672:15672
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+
+    - name: Cache pip dependencies
+      uses: actions/cache@v3
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-${{ hashFiles('services/exception/requirements.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-pip-
+
+    - name: Install dependencies
+      working-directory: services/exception
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install flake8 black mypy
+
+    - name: Lint with flake8
+      working-directory: services/exception
+      run: |
+        flake8 app/ --count --select=E9,F63,F7,F82 --show-source --statistics
+        flake8 app/ --count --max-complexity=10 --max-line-length=100 --statistics
+
+    - name: Check code formatting with black
+      working-directory: services/exception
+      run: black --check app/ --line-length=100
+
+    - name: Type checking with mypy
+      working-directory: services/exception
+      run: mypy app/ --ignore-missing-imports
+
+    - name: Run unit tests
+      working-directory: services/exception
+      env:
+        DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/test_db
+        RABBITMQ_URL: amqp://guest:guest@localhost:5672/
+      run: |
+        pytest tests/unit/ -v --cov=app --cov-report=xml --cov-report=term-missing --cov-fail-under=95
+
+    - name: Run integration tests
+      working-directory: services/exception
+      env:
+        DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/test_db
+        RABBITMQ_URL: amqp://guest:guest@localhost:5672/
+      run: |
+        pytest tests/integration/ -v --timeout=300
+
+    - name: Upload coverage to Codecov
+      if: success()
+      uses: codecov/codecov-action@v3
+      with:
+        file: services/exception/coverage.xml
+        flags: backend
+        name: exception-service-backend
+
+  # Frontend Tests
+  frontend-tests:
+    name: Frontend Tests
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+        cache-dependency-path: frontend/package-lock.json
+
+    - name: Install dependencies
+      working-directory: frontend
+      run: npm ci
+
+    - name: Lint TypeScript
+      working-directory: frontend
+      run: |
+        npx eslint src/exception/ --ext .ts,.tsx --max-warnings 0
+        npx tsc --noEmit
+
+    - name: Check code formatting
+      working-directory: frontend
+      run: npx prettier --check "src/exception/**/*.{ts,tsx}"
+
+    - name: Run unit tests
+      working-directory: frontend
+      run: |
+        npm test -- --coverage --watchAll=false --testPathPattern="exception" --coverageThreshold='{"global":{"branches":95,"functions":95,"lines":95,"statements":95}}'
+
+    - name: Build for production
+      working-directory: frontend
+      run: npm run build
+
+    - name: Upload coverage to Codecov
+      if: success()
+      uses: codecov/codecov-action@v3
+      with:
+        file: frontend/coverage/lcov.info
+        flags: frontend
+        name: exception-service-frontend
+
+  # E2E Tests
+  e2e-tests:
+    name: E2E Tests
+    runs-on: ubuntu-latest
+    needs: [backend-tests, frontend-tests]
+
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: test_db
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+      
+      rabbitmq:
+        image: rabbitmq:3-management
+        env:
+          RABBITMQ_DEFAULT_USER: guest
+          RABBITMQ_DEFAULT_PASS: guest
+        options: >-
+          --health-cmd "rabbitmq-diagnostics -q ping"
+          --health-interval 30s
+          --health-timeout 30s
+          --health-retries 3
+        ports:
+          - 5672:5672
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+        cache-dependency-path: frontend/package-lock.json
+
+    - name: Install backend dependencies
+      working-directory: services/exception
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+
+    - name: Install frontend dependencies
+      working-directory: frontend
+      run: npm ci
+
+    - name: Install Playwright browsers
+      working-directory: frontend
+      run: npx playwright install --with-deps
+
+    - name: Set up database
+      working-directory: services/exception
+      env:
+        DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/test_db
+      run: |
+        alembic upgrade head
+
+    - name: Start backend service
+      working-directory: services/exception
+      env:
+        DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/test_db
+        RABBITMQ_URL: amqp://guest:guest@localhost:5672/
+        ENVIRONMENT: test
+      run: |
+        uvicorn app.main:app --host 0.0.0.0 --port 8007 &
+        sleep 10
+
+    - name: Start frontend
+      working-directory: frontend
+      env:
+        VITE_EXCEPTION_API_URL: http://localhost:8007
+      run: |
+        npm run dev &
+        sleep 10
+
+    - name: Wait for services
+      run: |
+        timeout 60 bash -c 'until curl -f http://localhost:8007/health/live; do sleep 2; done'
+        timeout 60 bash -c 'until curl -f http://localhost:5173; do sleep 2; done'
+
+    - name: Run E2E tests
+      working-directory: frontend
+      env:
+        PLAYWRIGHT_BASE_URL: http://localhost:5173
+        API_BASE_URL: http://localhost:8007
+      run: |
+        npx playwright test tests/e2e/exception/ --reporter=html
+
+    - name: Upload E2E test results
+      uses: actions/upload-artifact@v3
+      if: failure()
+      with:
+        name: e2e-test-results
+        path: frontend/test-results/
+        retention-days: 7
+
+    - name: Upload E2E test report
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: e2e-test-report
+        path: frontend/playwright-report/
+        retention-days: 7
+
+  # Security Scan
+  security-scan:
+    name: Security Scan
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Run Trivy vulnerability scanner
+      uses: aquasecurity/trivy-action@master
+      with:
+        scan-type: 'fs'
+        scan-ref: 'services/exception'
+        format: 'sarif'
+        output: 'trivy-results.sarif'
+
+    - name: Upload Trivy scan results to GitHub Security tab
+      uses: github/codeql-action/upload-sarif@v2
+      if: always()
+      with:
+        sarif_file: 'trivy-results.sarif'
+
+    - name: Run Bandit security linter
+      working-directory: services/exception
+      run: |
+        pip install bandit
+        bandit -r app/ -f json -o bandit-report.json || true
+
+    - name: Upload Bandit results
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: bandit-security-report
+        path: services/exception/bandit-report.json
+
+  # Build and Push Docker Image
+  build-image:
+    name: Build Docker Image
+    runs-on: ubuntu-latest
+    needs: [backend-tests, frontend-tests]
+    if: github.ref == 'refs/heads/main'
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v2
+
+    - name: Log in to GitHub Container Registry
+      uses: docker/login-action@v2
+      with:
+        registry: ghcr.io
+        username: ${{ github.repository_owner }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Extract metadata
+      id: meta
+      uses: docker/metadata-action@v4
+      with:
+        images: ghcr.io/${{ github.repository_owner }}/exception-service
+        tags: |
+          type=ref,event=branch
+          type=ref,event=pr
+          type=sha,prefix={{branch}}-
+          type=raw,value=latest,enable={{is_default_branch}}
+
+    - name: Build and push Docker image
+      uses: docker/build-push-action@v4
+      with:
+        context: services/exception
+        push: true
+        tags: ${{ steps.meta.outputs.tags }}
+        labels: ${{ steps.meta.outputs.labels }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+
+  # Deploy to Development
+  deploy-dev:
+    name: Deploy to Development
+    runs-on: ubuntu-latest
+    needs: [build-image, e2e-tests]
+    if: github.ref == 'refs/heads/main'
+    environment: development
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up kubectl
+      uses: azure/setup-kubectl@v3
+      with:
+        version: 'v1.28.0'
+
+    - name: Set up Helm
+      uses: azure/setup-helm@v3
+      with:
+        version: 'v3.12.0'
+
+    - name: Configure kubectl
+      env:
+        KUBE_CONFIG: ${{ secrets.KUBE_CONFIG_DEV }}
+      run: |
+        echo "$KUBE_CONFIG" | base64 -d > $HOME/.kube/config
+
+    - name: Deploy to development
+      working-directory: charts/exception
+      env:
+        IMAGE_TAG: ${{ github.sha }}
+      run: |
+        helm upgrade --install exception-dev . \
+          --namespace exception-dev \
+          --create-namespace \
+          --set image.tag=main-${IMAGE_TAG:0:7} \
+          --set config.environment=development \
+          --set config.databaseUrl="${{ secrets.DEV_DATABASE_URL }}" \
+          --set config.rabbitmqUrl="${{ secrets.DEV_RABBITMQ_URL }}" \
+          --wait --timeout=300s
+
+    - name: Verify deployment
+      run: |
+        kubectl wait --for=condition=available --timeout=300s deployment/exception-dev -n exception-dev
+        kubectl get pods -n exception-dev
+        
+    - name: Run smoke tests
+      run: |
+        kubectl port-forward service/exception-dev 8007:8007 -n exception-dev &
+        sleep 10
+        curl -f http://localhost:8007/health/live
+        curl -f http://localhost:8007/health/ready
+
+  # Notification
+  notify:
+    name: Notify
+    runs-on: ubuntu-latest
+    needs: [deploy-dev]
+    if: always()
+
+    steps:
+    - name: Notify on success
+      if: needs.deploy-dev.result == 'success'
+      uses: 8398a7/action-slack@v3
+      with:
+        status: success
+        text: "✅ Exception Service deployed successfully to development!"
+      env:
+        SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+
+    - name: Notify on failure
+      if: failure()
+      uses: 8398a7/action-slack@v3
+      with:
+        status: failure
+        text: "❌ Exception Service deployment failed. Check the logs for details."
+      env:
+        SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }} 

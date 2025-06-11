@@ -1,0 +1,128 @@
+# Default values for exception service
+replicaCount: 2
+
+image:
+  repository: exception-service
+  pullPolicy: IfNotPresent
+  tag: "1.0.0"
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+podAnnotations: {}
+
+podSecurityContext:
+  fsGroup: 1000
+
+securityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+    - ALL
+  readOnlyRootFilesystem: false
+  runAsNonRoot: true
+  runAsUser: 1000
+
+service:
+  type: ClusterIP
+  port: 8007
+  targetPort: 8007
+
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+  hosts:
+    - host: exception.local
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
+
+resources:
+  limits:
+    cpu: 1000m
+    memory: 1Gi
+  requests:
+    cpu: 500m
+    memory: 512Mi
+
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 70
+  targetMemoryUtilizationPercentage: 80
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
+
+# Application configuration
+config:
+  # Environment
+  environment: "development"
+  debug: true
+  logLevel: "INFO"
+  logFormat: "json"
+  
+  # Database
+  databaseUrl: "postgresql+asyncpg://postgres:postgres@postgres:5432/invoice_flow"
+  
+  # RabbitMQ
+  rabbitmqUrl: "amqp://guest:guest@rabbitmq:5672/"
+  
+  # CORS
+  allowOrigins:
+    - "http://localhost:3000"
+    - "http://localhost:5173"
+  
+  # Pagination
+  defaultPageSize: 20
+  maxPageSize: 100
+  
+  # Health checks
+  healthCheckTimeout: 5
+
+# External services
+postgresql:
+  enabled: false  # Assuming external PostgreSQL
+  
+rabbitmq:
+  enabled: false  # Assuming external RabbitMQ
+
+# Monitoring
+monitoring:
+  enabled: true
+  serviceMonitor:
+    enabled: true
+    interval: 30s
+    scrapeTimeout: 10s
+
+# Probes configuration
+probes:
+  liveness:
+    enabled: true
+    initialDelaySeconds: 30
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 3
+    successThreshold: 1
+    path: "/health/live"
+    
+  readiness:
+    enabled: true
+    initialDelaySeconds: 10
+    periodSeconds: 5
+    timeoutSeconds: 5
+    failureThreshold: 3
+    successThreshold: 1
+    path: "/health/ready" 
