@@ -1,0 +1,12 @@
+replicaCount: 1
+image:
+  repository: myrepo/billing
+  tag: latest
+  pullPolicy: IfNotPresent
+env:
+  DATABASE_URL: ""
+  RABBITMQ_URL: ""
+  STRIPE_API_KEY: ""
+  STRIPE_SUBSCRIPTION_ITEM_ID: ""
+  BILLING_PUBLISH_QUEUE: invoice_posted
+resources: {} 

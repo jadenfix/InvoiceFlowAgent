@@ -1,0 +1,36 @@
+name: Billing Service CI
+
+on:
+  push:
+    paths:
+      - 'services/billing/**'
+      - 'charts/billing/**'
+      - '.github/workflows/billing-ci.yml'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: invoice_flow
+        ports: ['5432:5432']
+      rabbitmq:
+        image: rabbitmq:3
+        ports: ['5672:5672']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install deps
+        run: pip install -r services/billing/requirements.txt
+      - name: Run pytest
+        run: pytest services/billing -q --asyncio-mode=auto
+      - name: Helm lint
+        run: |
+          sudo snap install helm --classic
+          helm lint charts/billing 

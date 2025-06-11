@@ -1,0 +1,54 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "billing.fullname" . }}
+  labels:
+    {{- include "billing.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "billing.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "billing.selectorLabels" . | nindent 8 }}
+    spec:
+      containers:
+        - name: billing
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "billing.fullname" . }}
+                  key: DATABASE_URL
+            - name: RABBITMQ_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "billing.fullname" . }}
+                  key: RABBITMQ_URL
+            - name: STRIPE_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "billing.fullname" . }}
+                  key: STRIPE_API_KEY
+            - name: STRIPE_SUBSCRIPTION_ITEM_ID
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "billing.fullname" . }}
+                  key: STRIPE_SUBSCRIPTION_ITEM_ID
+            - name: BILLING_PUBLISH_QUEUE
+              value: "{{ .Values.env.BILLING_PUBLISH_QUEUE }}"
+          ports:
+            - containerPort: 8010
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: 8010
+          livenessProbe:
+            httpGet:
+              path: /health/live
+              port: 8010
+          resources: {{- toYaml .Values.resources | nindent 12 }} 
