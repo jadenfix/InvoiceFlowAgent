@@ -1,0 +1,13 @@
+replicaCount: 1
+image:
+  repository: myrepo/erp
+  tag: latest
+  pullPolicy: IfNotPresent
+env:
+  DATABASE_URL: ""
+  RABBITMQ_URL: ""
+  ERP_API_BASE_URL: ""
+  ERP_API_TOKEN: ""
+  ERP_RETRY_MAX: 3
+  ERP_RETRY_BACKOFF_BASE: 2
+resources: {} 

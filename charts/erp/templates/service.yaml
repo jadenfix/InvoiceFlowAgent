@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "erp.fullname" . }}
+  labels:
+    {{- include "erp.labels" . | nindent 4 }}
+spec:
+  type: ClusterIP
+  ports:
+    - port: 80
+      targetPort: 8008
+      protocol: TCP
+      name: http
+  selector:
+    {{- include "erp.selectorLabels" . | nindent 4 }} 

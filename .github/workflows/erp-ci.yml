@@ -1,0 +1,40 @@
+name: ERP Service CI
+
+on:
+  push:
+    paths:
+      - 'services/erp/**'
+      - 'charts/erp/**'
+      - '.github/workflows/erp-ci.yml'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: invoice_flow
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 10s --health-timeout 5s --health-retries 5
+      rabbitmq:
+        image: rabbitmq:3-management
+        ports: ['5672:5672']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install deps
+        run: |
+          pip install -r services/erp/requirements.txt
+      - name: Run pytest
+        run: |
+          pytest services/erp -q --asyncio-mode=auto
+      - name: Helm lint
+        run: |
+          sudo snap install helm --classic
+          helm lint charts/erp 
