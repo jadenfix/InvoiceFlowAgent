@@ -166,44 +166,46 @@ class Pipeline:
         if self.pool:
             await self.pool.close()
 
+    async def dispatch_once(self):
+        """One transactional batch; any unconfirmed publication rolls back sent/completed."""
+        async with self.pool.acquire() as conn:
+            async with conn.transaction():
+                rows = await conn.fetch(
+                    "SELECT * FROM pipeline_outbox WHERE NOT sent ORDER BY id LIMIT 20 FOR UPDATE SKIP LOCKED"
+                )
+                for row in rows:
+                    message = aio_pika.Message(
+                        json.dumps(
+                            {
+                                "invoice_id": str(row["invoice_id"]),
+                                "stage": row["stage"],
+                            }
+                        ).encode(),
+                        delivery_mode=aio_pika.DeliveryMode.PERSISTENT,
+                        message_id=str(row["id"]),
+                    )
+                    confirmation = await self.channel.default_exchange.publish(
+                        message,
+                        routing_key=f"pipeline_{row['stage']}",
+                        mandatory=True,
+                    )
+                    if not isinstance(confirmation, Basic.Ack):
+                        raise RuntimeError("Broker did not confirm durable publication")
+                    if row["stage"] == "complete":
+                        await conn.execute(
+                            "UPDATE pipeline_invoices SET status='COMPLETED',updated_at=now() WHERE id=$1 AND status='MATCHED'",
+                            row["invoice_id"],
+                        )
+                    await conn.execute(
+                        "UPDATE pipeline_outbox SET sent=true WHERE id=$1",
+                        row["id"],
+                    )
+
     async def dispatch_outbox(self):
         while True:
             try:
                 await self.connect_queue()
-                async with self.pool.acquire() as conn:
-                    async with conn.transaction():
-                        rows = await conn.fetch(
-                            "SELECT * FROM pipeline_outbox WHERE NOT sent ORDER BY id LIMIT 20 FOR UPDATE SKIP LOCKED"
-                        )
-                        for row in rows:
-                            message = aio_pika.Message(
-                                json.dumps(
-                                    {
-                                        "invoice_id": str(row["invoice_id"]),
-                                        "stage": row["stage"],
-                                    }
-                                ).encode(),
-                                delivery_mode=aio_pika.DeliveryMode.PERSISTENT,
-                                message_id=str(row["id"]),
-                            )
-                            confirmation = await self.channel.default_exchange.publish(
-                                message,
-                                routing_key=f"pipeline_{row['stage']}",
-                                mandatory=True,
-                            )
-                            if not isinstance(confirmation, Basic.Ack):
-                                raise RuntimeError(
-                                    "Broker did not confirm durable publication"
-                                )
-                            if row["stage"] == "complete":
-                                await conn.execute(
-                                    "UPDATE pipeline_invoices SET status='COMPLETED',updated_at=now() WHERE id=$1 AND status='MATCHED'",
-                                    row["invoice_id"],
-                                )
-                            await conn.execute(
-                                "UPDATE pipeline_outbox SET sent=true WHERE id=$1",
-                                row["id"],
-                            )
+                await self.dispatch_once()
             except asyncio.CancelledError:
                 raise
             except Exception:

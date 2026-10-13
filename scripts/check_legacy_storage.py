@@ -4,6 +4,7 @@ import asyncio
 import json
 import os
 import sys
+import subprocess
 import time
 import uuid
 from pathlib import Path
@@ -13,6 +14,8 @@ import aio_pika
 import asyncpg
 import boto3
 import httpx
+from types import SimpleNamespace
+from services.pipeline.runtime import Pipeline
 from scripts.check_pipeline_http import make_pdf, wait_status
 
 BASE = "http://127.0.0.1:8003"
@@ -157,6 +160,85 @@ async def proof():
             assert await db.fetchval("SELECT count(*) FROM pipeline_invoices") == before
             assert http.get(BASE + "/health/ready").status_code == 503
             s3.create_bucket(Bucket="invoices")
+        # Stop application dispatchers, then exercise real PostgreSQL rollback for
+        # an explicitly injected broker rejection, followed by a real confirmed publish.
+        subprocess.run(
+            [
+                "docker",
+                "compose",
+                "-f",
+                "docker-compose.e2e.yml",
+                "stop",
+                "ingest",
+                "extract",
+                "match",
+            ],
+            check=True,
+        )
+        test_id, outbox_id = uuid.uuid4(), uuid.uuid4()
+        await db.execute(
+            "INSERT INTO pipeline_invoices(id,filename,pdf,status) VALUES($1,'publication-failure.pdf',$2,'MATCHED')",
+            test_id,
+            b"%PDF-contract",
+        )
+        await db.execute(
+            "INSERT INTO pipeline_outbox(id,invoice_id,stage) VALUES($1,$2,'complete')",
+            outbox_id,
+            test_id,
+        )
+        worker = Pipeline()
+        worker.pool = await asyncpg.create_pool(DB, min_size=1, max_size=2)
+
+        async def rejected(*args, **kwargs):
+            return False
+
+        worker.channel = SimpleNamespace(
+            default_exchange=SimpleNamespace(publish=rejected)
+        )
+        try:
+            try:
+                await worker.dispatch_once()
+            except RuntimeError as error:
+                assert "did not confirm" in str(error)
+            else:
+                raise AssertionError("Unconfirmed publication was accepted")
+            assert (
+                await db.fetchval(
+                    "SELECT status FROM pipeline_invoices WHERE id=$1", test_id
+                )
+                == "MATCHED"
+            )
+            assert (
+                await db.fetchval(
+                    "SELECT sent FROM pipeline_outbox WHERE id=$1", outbox_id
+                )
+                is False
+            )
+            await worker.connect_queue()
+            await worker.dispatch_once()
+            assert (
+                await db.fetchval(
+                    "SELECT status FROM pipeline_invoices WHERE id=$1", test_id
+                )
+                == "COMPLETED"
+            )
+            assert (
+                await db.fetchval(
+                    "SELECT sent FROM pipeline_outbox WHERE id=$1", outbox_id
+                )
+                is True
+            )
+            observed = False
+            for _ in range(30):
+                message = await complete.get(timeout=2, fail=False)
+                if message:
+                    observed = json.loads(message.body)["invoice_id"] == str(test_id)
+                    await message.ack()
+                    if observed:
+                        break
+            assert observed, "Confirmed publication missing actual final event"
+        finally:
+            await worker.stop()
         print(
             "PASS real S3 byte roundtrip, shared DB, document-derived decisions, mandatory final events, malformed PDF and actual storage failure",
             flush=True,
