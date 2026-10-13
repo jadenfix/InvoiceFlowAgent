@@ -34,13 +34,13 @@ resource "aws_internet_gateway" "main" {
 locals {
   # Calculate the number of bits needed for subnets
   subnet_bits = ceil(log(length(var.availability_zones) * 2, 2))
-  
+
   # Create CIDR blocks for subnets
   public_subnets = [
     for i, az in var.availability_zones :
     cidrsubnet(var.vpc_cidr, local.subnet_bits, i)
   ]
-  
+
   private_subnets = [
     for i, az in var.availability_zones :
     cidrsubnet(var.vpc_cidr, local.subnet_bits, i + length(var.availability_zones))
@@ -57,8 +57,8 @@ resource "aws_subnet" "public" {
   map_public_ip_on_launch = true
 
   tags = merge(var.tags, {
-    Name = "${var.project_name}-${var.environment}-public-${var.availability_zones[count.index]}"
-    Type = "Public"
+    Name                     = "${var.project_name}-${var.environment}-public-${var.availability_zones[count.index]}"
+    Type                     = "Public"
     "kubernetes.io/role/elb" = "1"
   })
 }
@@ -72,8 +72,8 @@ resource "aws_subnet" "private" {
   availability_zone = var.availability_zones[count.index]
 
   tags = merge(var.tags, {
-    Name = "${var.project_name}-${var.environment}-private-${var.availability_zones[count.index]}"
-    Type = "Private"
+    Name                              = "${var.project_name}-${var.environment}-private-${var.availability_zones[count.index]}"
+    Type                              = "Private"
     "kubernetes.io/role/internal-elb" = "1"
   })
 }

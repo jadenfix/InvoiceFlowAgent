@@ -25,7 +25,7 @@ resource "aws_secretsmanager_secret" "rds_password" {
   name                    = "${var.project_name}-${var.environment}-rds-master-password"
   description             = "Master password for RDS cluster"
   recovery_window_in_days = 7
-  
+
   tags = var.tags
 }
 
@@ -102,7 +102,7 @@ resource "aws_rds_cluster_parameter_group" "main" {
 
   parameter {
     name  = "log_min_duration_statement"
-    value = "1000"  # Log queries longer than 1 second
+    value = "1000" # Log queries longer than 1 second
   }
 
   parameter {
@@ -128,32 +128,32 @@ resource "aws_db_parameter_group" "main" {
 # RDS Aurora Cluster
 resource "aws_rds_cluster" "main" {
   cluster_identifier = "${var.project_name}-${var.environment}-cluster"
-  
+
   engine          = "aurora-postgresql"
   engine_version  = var.engine_version
   database_name   = var.database_name
   master_username = var.master_username
   master_password = random_password.master.result
 
-  backup_retention_period   = var.backup_retention_period
-  preferred_backup_window   = var.backup_window
+  backup_retention_period      = var.backup_retention_period
+  preferred_backup_window      = var.backup_window
   preferred_maintenance_window = var.maintenance_window
-  
-  db_cluster_parameter_group_name = aws_rds_cluster_parameter_group.main.name
-  db_subnet_group_name           = aws_db_subnet_group.main.name
-  vpc_security_group_ids         = [aws_security_group.rds.id]
 
-  storage_encrypted   = true
-  kms_key_id         = aws_kms_key.rds.arn
-  
+  db_cluster_parameter_group_name = aws_rds_cluster_parameter_group.main.name
+  db_subnet_group_name            = aws_db_subnet_group.main.name
+  vpc_security_group_ids          = [aws_security_group.rds.id]
+
+  storage_encrypted = true
+  kms_key_id        = aws_kms_key.rds.arn
+
   # Enable logging
   enabled_cloudwatch_logs_exports = ["postgresql"]
-  
+
   # Enable backtrack (if supported)
   # backtrack_window = 24
-  
-  deletion_protection = var.environment == "prod" ? true : false
-  skip_final_snapshot = var.environment == "prod" ? false : true
+
+  deletion_protection       = var.environment == "prod" ? true : false
+  skip_final_snapshot       = var.environment == "prod" ? false : true
   final_snapshot_identifier = var.environment == "prod" ? "${var.project_name}-${var.environment}-final-snapshot-${formatdate("YYYY-MM-DD-hhmm", timestamp())}" : null
 
   tags = merge(var.tags, {
@@ -171,10 +171,10 @@ resource "aws_rds_cluster_instance" "cluster_instances" {
   engine_version     = aws_rds_cluster.main.engine_version
 
   db_parameter_group_name = aws_db_parameter_group.main.name
-  
+
   performance_insights_enabled = true
-  monitoring_interval         = 60
-  monitoring_role_arn         = aws_iam_role.rds_enhanced_monitoring.arn
+  monitoring_interval          = 60
+  monitoring_role_arn          = aws_iam_role.rds_enhanced_monitoring.arn
 
   tags = merge(var.tags, {
     Name = "${var.project_name}-${var.environment}-aurora-instance-${count.index}"

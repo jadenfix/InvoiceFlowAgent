@@ -188,7 +188,7 @@ resource "aws_s3_bucket_lifecycle_configuration" "logs" {
     }
 
     expiration {
-      days = 365  # Delete logs after 1 year
+      days = 365 # Delete logs after 1 year
     }
   }
 }
@@ -271,8 +271,8 @@ resource "aws_cloudtrail" "s3_access" {
   s3_key_prefix  = "cloudtrail/"
 
   event_selector {
-    read_write_type                 = "All"
-    include_management_events       = true
+    read_write_type                  = "All"
+    include_management_events        = true
     exclude_management_event_sources = []
 
     data_resource {
@@ -317,7 +317,7 @@ resource "aws_s3_bucket_policy" "cloudtrail_logs" {
         Resource = "${aws_s3_bucket.logs.arn}/cloudtrail/*"
         Condition = {
           StringEquals = {
-            "s3:x-amz-acl" = "bucket-owner-full-control"
+            "s3:x-amz-acl"  = "bucket-owner-full-control"
             "AWS:SourceArn" = "arn:aws:cloudtrail:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:trail/${var.project_name}-${var.environment}-s3-cloudtrail"
           }
         }

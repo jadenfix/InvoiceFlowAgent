@@ -23,7 +23,7 @@ variable "aws_region" {
 variable "vpc_cidr" {
   description = "CIDR block for VPC"
   type        = string
-  default     = "10.2.0.0/16"  # Different CIDR from dev and staging
+  default     = "10.2.0.0/16" # Different CIDR from dev and staging
 }
 
 # EKS Configuration
@@ -41,7 +41,7 @@ variable "eks_node_groups" {
     min_capacity     = number
     instance_types   = list(string)
     capacity_type    = string
-    labels          = map(string)
+    labels           = map(string)
     taints = list(object({
       key    = string
       value  = string
@@ -50,10 +50,10 @@ variable "eks_node_groups" {
   }))
   default = {
     general = {
-      desired_capacity = 6   # High availability
+      desired_capacity = 6 # High availability
       max_capacity     = 15
-      min_capacity     = 3   # Minimum for HA across 3 AZs
-      instance_types   = ["m5.xlarge", "m5.2xlarge"]  # Production-grade instances
+      min_capacity     = 3                           # Minimum for HA across 3 AZs
+      instance_types   = ["m5.xlarge", "m5.2xlarge"] # Production-grade instances
       capacity_type    = "ON_DEMAND"
       labels = {
         role = "general"
@@ -64,8 +64,8 @@ variable "eks_node_groups" {
       desired_capacity = 3
       max_capacity     = 10
       min_capacity     = 2
-      instance_types   = ["c5.2xlarge", "c5.4xlarge"]  # High-performance compute
-      capacity_type    = "ON_DEMAND"  # ON_DEMAND for production reliability
+      instance_types   = ["c5.2xlarge", "c5.4xlarge"] # High-performance compute
+      capacity_type    = "ON_DEMAND"                  # ON_DEMAND for production reliability
       labels = {
         role = "compute-intensive"
       }
@@ -79,7 +79,7 @@ variable "eks_node_groups" {
       desired_capacity = 2
       max_capacity     = 6
       min_capacity     = 1
-      instance_types   = ["r5.xlarge", "r5.2xlarge"]  # Memory-optimized for AI workloads
+      instance_types   = ["r5.xlarge", "r5.2xlarge"] # Memory-optimized for AI workloads
       capacity_type    = "ON_DEMAND"
       labels = {
         role = "memory-intensive"
@@ -103,13 +103,13 @@ variable "rds_engine_version" {
 variable "rds_instance_class" {
   description = "RDS instance class"
   type        = string
-  default     = "db.r6g.xlarge"  # Production-grade instance
+  default     = "db.r6g.xlarge" # Production-grade instance
 }
 
 variable "rds_allocated_storage" {
   description = "The allocated storage in gigabytes"
   type        = number
-  default     = 500  # Production storage
+  default     = 500 # Production storage
 }
 
 variable "rds_database_name" {
@@ -127,7 +127,7 @@ variable "rds_master_username" {
 variable "rds_backup_retention_period" {
   description = "The backup retention period"
   type        = number
-  default     = 30  # 30 days for production
+  default     = 30 # 30 days for production
 }
 
 variable "rds_backup_window" {
@@ -152,14 +152,14 @@ variable "enable_monitoring" {
 variable "log_retention_days" {
   description = "CloudWatch logs retention in days"
   type        = number
-  default     = 365  # 1 year retention for production
+  default     = 365 # 1 year retention for production
 }
 
 # Security Configuration
 variable "allowed_cidr_blocks" {
   description = "List of CIDR blocks allowed to access the infrastructure"
   type        = list(string)
-  default     = ["10.0.0.0/8"]  # Restricted to private networks
+  default     = ["10.0.0.0/8"] # Restricted to private networks
 }
 
 # Resource Sizing
@@ -235,5 +235,5 @@ variable "enable_performance_insights" {
 variable "performance_insights_retention_period" {
   description = "Amount of time in days to retain Performance Insights data"
   type        = number
-  default     = 731  # 2 years
+  default     = 731 # 2 years
 } 

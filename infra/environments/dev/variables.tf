@@ -41,7 +41,7 @@ variable "eks_node_groups" {
     min_capacity     = number
     instance_types   = list(string)
     capacity_type    = string
-    labels          = map(string)
+    labels           = map(string)
     taints = list(object({
       key    = string
       value  = string
@@ -144,7 +144,7 @@ variable "log_retention_days" {
 variable "allowed_cidr_blocks" {
   description = "List of CIDR blocks allowed to access the infrastructure"
   type        = list(string)
-  default     = ["0.0.0.0/0"]  # In production, this should be restricted
+  default     = ["0.0.0.0/0"] # In production, this should be restricted
 }
 
 # Resource Sizing
@@ -182,5 +182,5 @@ variable "enable_cloudtrail" {
 variable "enable_config" {
   description = "Enable AWS Config for compliance monitoring"
   type        = bool
-  default     = false  # Disabled in dev for cost optimization
+  default     = false # Disabled in dev for cost optimization
 } 

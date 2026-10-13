@@ -27,7 +27,7 @@ variable "node_groups" {
     min_capacity     = number
     instance_types   = list(string)
     capacity_type    = string
-    labels          = map(string)
+    labels           = map(string)
     taints = list(object({
       key    = string
       value  = string
