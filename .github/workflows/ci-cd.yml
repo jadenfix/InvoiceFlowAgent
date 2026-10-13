@@ -371,84 +371,8 @@ jobs:
   # E2E Testing
   e2e-tests:
     name: End-to-End Tests
-    runs-on: ubuntu-latest
     needs: [auth-service-tests, frontend-tests]
-    services:
-      postgres:
-        image: postgres:15
-        env:
-          POSTGRES_PASSWORD: testpassword
-          POSTGRES_USER: testuser
-          POSTGRES_DB: testdb
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-        ports:
-          - 5432:5432
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '18'
-          cache: 'npm'
-          cache-dependency-path: frontend/package-lock.json
-
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.11'
-
-      - name: Install Python dependencies
-        run: |
-          cd services/auth
-          pip install -r requirements.txt
-
-      - name: Install frontend dependencies
-        run: |
-          cd frontend
-          npm ci
-
-      - name: Install Playwright
-        run: |
-          cd frontend
-          npx playwright install --with-deps
-
-      - name: Start auth service
-        env:
-          DATABASE_URL: postgresql://testuser:testpassword@localhost:5432/testdb
-          JWT_SECRET: test-secret-key-that-is-long-enough-for-testing
-          ENVIRONMENT: testing
-        run: |
-          cd services/auth
-          python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 &
-          sleep 10
-
-      - name: Start frontend
-        env:
-          VITE_AUTH_SERVICE_URL: http://localhost:8000
-        run: |
-          cd frontend
-          npm run build
-          npm run preview --port 3000 &
-          sleep 10
-
-      - name: Run E2E tests
-        run: |
-          cd frontend
-          npm run test:e2e
-
-      - name: Upload E2E test results
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: playwright-report
-          path: frontend/playwright-report/
+    uses: ./.github/workflows/durable-pipeline.yml
 
   # End-to-End Pipeline Tests
   build-images:
