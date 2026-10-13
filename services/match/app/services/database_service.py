@@ -126,7 +126,7 @@ class DatabaseService:
                     .values(
                         matched_status=match_update.matched_status,
                         matched_at=func.now(),
-                        matched_details=match_update.matched_details.dict(),
+                        matched_details=match_update.matched_details.model_dump(mode="json"),
                     )
                 )
 

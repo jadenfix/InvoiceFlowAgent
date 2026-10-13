@@ -63,7 +63,7 @@ async def db_engine(postgres_container):
 @pytest_asyncio.fixture
 async def db_session(db_engine):
     """Create test database session."""
-    async_session = async_sessionmaker(db_engine, class_=AsyncSession)
+    async_session = async_sessionmaker(db_engine, class_=AsyncSession, expire_on_commit=False)
     
     async with async_session() as session:
         yield session
@@ -74,7 +74,7 @@ async def db_service(db_engine):
     """Create test database service."""
     service = DatabaseService()
     service.engine = db_engine
-    service.session_factory = async_sessionmaker(db_engine, class_=AsyncSession)
+    service.session_factory = async_sessionmaker(db_engine, class_=AsyncSession, expire_on_commit=False)
     service._is_healthy = True
     return service
 

@@ -201,7 +201,9 @@ class MatchingService:
             )
 
             await mq_service.retry_with_backoff(
-                mq_service.publish_invoice_matched, matched_message.dict(), request_id
+                mq_service.publish_invoice_matched,
+                matched_message.model_dump(mode="json"),
+                request_id,
             )
 
         except Exception as e:
@@ -230,7 +232,7 @@ class MatchingService:
                 {
                     "request_id": request_id,
                     "status": "NEEDS_REVIEW",
-                    "details": error_match_result.matched_details.dict(),
+                    "details": error_match_result.matched_details.model_dump(mode="json"),
                     "error": f"Matching failed: {str(error)}",
                 },
                 request_id,
