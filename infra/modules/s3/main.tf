@@ -82,6 +82,7 @@ resource "aws_s3_bucket_lifecycle_configuration" "invoices" {
   rule {
     id     = "invoice_lifecycle"
     status = "Enabled"
+    filter {}
     abort_incomplete_multipart_upload { days_after_initiation = 7 }
 
     transition {
@@ -185,6 +186,7 @@ resource "aws_s3_bucket_lifecycle_configuration" "logs" {
   rule {
     id     = "logs_lifecycle"
     status = "Enabled"
+    filter {}
     abort_incomplete_multipart_upload { days_after_initiation = 7 }
 
     transition {
@@ -247,6 +249,7 @@ resource "aws_s3_bucket_lifecycle_configuration" "backups" {
   rule {
     id     = "backups_lifecycle"
     status = "Enabled"
+    filter {}
     abort_incomplete_multipart_upload { days_after_initiation = 7 }
 
     transition {
@@ -434,6 +437,7 @@ resource "aws_s3_bucket_lifecycle_configuration" "access_log_sink" {
   rule {
     id     = "access-log-retention"
     status = "Enabled"
+    filter {}
     abort_incomplete_multipart_upload { days_after_initiation = 7 }
     expiration { days = 365 }
     noncurrent_version_expiration { noncurrent_days = 365 }
@@ -491,6 +495,7 @@ resource "aws_s3_bucket_lifecycle_configuration" "processed_invoices" {
   rule {
     id     = "processed_invoice_retention"
     status = "Enabled"
+    filter {}
     abort_incomplete_multipart_upload { days_after_initiation = 7 }
     noncurrent_version_expiration { noncurrent_days = 365 }
   }

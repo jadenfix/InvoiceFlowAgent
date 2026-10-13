@@ -141,7 +141,7 @@ module "waf_log_key" {
 resource "aws_cloudwatch_log_group" "waf" {
   name              = "aws-waf-logs-${var.project_name}-${var.environment}"
   retention_in_days = 365
-  kms_key_id        = module.waf_log_key.arn
+  kms_key_id        = module.waf_log_key.key_arn
   tags              = local.common_tags
 }
 resource "aws_wafv2_web_acl_logging_configuration" "application" {
