@@ -152,3 +152,11 @@ def test_legacy_router_is_the_real_application_router():
         "/api/v1/ingest/status/{request_id}",
         "/api/v1/ingest/stats",
     } <= paths
+
+
+@pytest.mark.parametrize(
+    "malformed", ["9,9,5.00", "1,,000.00", "1000,00", "not-an-amount"]
+)
+def test_malformed_second_total_cannot_be_ignored(malformed):
+    with pytest.raises(ValueError):
+        extract_fields(make_pdf(invoice_lines() + [f"Total Amount: {malformed}"]))
