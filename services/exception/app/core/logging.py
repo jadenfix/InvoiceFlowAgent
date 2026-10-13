@@ -1,14 +1,13 @@
 """Logging configuration for the Exception Review Service."""
 
-import sys
 import structlog
-from typing import Any, Dict
+from typing import Any
 from .config import settings
 
 
 def configure_logging() -> None:
     """Configure structured logging."""
-    
+
     structlog.configure(
         processors=[
             structlog.stdlib.filter_by_level,
@@ -19,8 +18,11 @@ def configure_logging() -> None:
             structlog.processors.StackInfoRenderer(),
             structlog.processors.format_exc_info,
             structlog.processors.UnicodeDecoder(),
-            structlog.processors.JSONRenderer() if settings.log_format == "json" 
-            else structlog.dev.ConsoleRenderer(),
+            (
+                structlog.processors.JSONRenderer()
+                if settings.log_format == "json"
+                else structlog.dev.ConsoleRenderer()
+            ),
         ],
         context_class=dict,
         logger_factory=structlog.stdlib.LoggerFactory(),
@@ -36,13 +38,7 @@ def get_logger(name: str) -> structlog.stdlib.BoundLogger:
 def log_request(request_id: str, method: str, path: str, **kwargs: Any) -> None:
     """Log incoming request."""
     logger = get_logger("request")
-    logger.info(
-        "Request received",
-        request_id=request_id,
-        method=method,
-        path=path,
-        **kwargs
-    )
+    logger.info("Request received", request_id=request_id, method=method, path=path, **kwargs)
 
 
 def log_response(request_id: str, status_code: int, duration_ms: float, **kwargs: Any) -> None:
@@ -66,4 +62,4 @@ def log_error(request_id: str, error: Exception, **kwargs: Any) -> None:
         error_type=type(error).__name__,
         error_message=str(error),
         **kwargs
-    ) 
+    )

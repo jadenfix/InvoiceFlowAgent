@@ -1,193 +1,116 @@
-version: '3.8'
-
+# Same canonical runtime, with an explicit local S3 mirror.
 services:
-  # Infrastructure Services
   postgres:
-    image: postgres:15
-    container_name: invoiceflow-postgres-e2e
+    image: postgres:16
     environment:
       POSTGRES_DB: invoiceflow_test
       POSTGRES_USER: testuser
       POSTGRES_PASSWORD: testpassword
     ports:
-      - "5432:5432"
+    - 127.0.0.1:5432:5432
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+    - pipeline_postgres:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U testuser -d invoiceflow_test"]
-      interval: 10s
+      test:
+      - CMD-SHELL
+      - pg_isready -U testuser -d invoiceflow_test
+      interval: 2s
       timeout: 5s
-      retries: 5
-
+      retries: 30
   rabbitmq:
-    image: rabbitmq:3-management
-    container_name: invoiceflow-rabbitmq-e2e
+    image: rabbitmq:3.13-management
     environment:
-      RABBITMQ_DEFAULT_USER: guest
-      RABBITMQ_DEFAULT_PASS: guest
+      RABBITMQ_DEFAULT_USER: testuser
+      RABBITMQ_DEFAULT_PASS: testpassword
     ports:
-      - "5672:5672"
-      - "15672:15672"
+    - 127.0.0.1:5672:5672
     volumes:
-      - rabbitmq_data:/var/lib/rabbitmq
+    - pipeline_rabbitmq:/var/lib/rabbitmq
     healthcheck:
-      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
-      interval: 30s
-      timeout: 30s
-      retries: 3
-
-  localstack:
-    image: localstack/localstack:latest
-    container_name: invoiceflow-s3-e2e
-    environment:
-      SERVICES: s3
-      DEBUG: 1
-      DATA_DIR: /tmp/localstack/data
-      DOCKER_HOST: unix:///var/run/docker.sock
-    ports:
-      - "4566:4566"
-    volumes:
-      - localstack_data:/tmp/localstack
-      - /var/run/docker.sock:/var/run/docker.sock
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:4566/_localstack/health"]
-      interval: 10s
-      timeout: 5s
-      retries: 3
-
-  # Application Services
-  ingest:
-    build:
-      context: ./services/ingest
-      dockerfile: Dockerfile
-    image: invoiceflow/ingest:e2e
-    container_name: invoiceflow-ingest-e2e
-    environment:
-      DATABASE_URL: postgresql+asyncpg://testuser:testpassword@postgres:5432/invoiceflow_test
-      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
-      S3_ENDPOINT_URL: http://localstack:4566
-      AWS_ACCESS_KEY_ID: testing
-      AWS_SECRET_ACCESS_KEY: testing
-      AWS_DEFAULT_REGION: us-east-1
-      S3_BUCKET_INVOICES: invoices
-      LOG_LEVEL: DEBUG
-      PORT: 8003
-    ports:
-      - "8003:8003"
-    depends_on:
-      postgres:
-        condition: service_healthy
-      rabbitmq:
-        condition: service_healthy
-      localstack:
-        condition: service_healthy
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8003/healthz"]
-      interval: 30s
+      test:
+      - CMD-SHELL
+      - rabbitmq-diagnostics -q check_running && rabbitmq-diagnostics -q check_port_connectivity
+      interval: 5s
       timeout: 10s
-      retries: 3
-      start_period: 40s
-
-  extract:
-    build:
-      context: ./services/extract
-      dockerfile: Dockerfile
-    image: invoiceflow/extract:e2e
-    container_name: invoiceflow-extract-e2e
+      retries: 30
+  ingest:
+    build: &id001
+      context: .
+      dockerfile: services/pipeline/Dockerfile
     environment:
-      DATABASE_URL: postgresql+asyncpg://testuser:testpassword@postgres:5432/invoiceflow_test
-      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
+      DATABASE_URL: postgresql://testuser:testpassword@postgres:5432/invoiceflow_test
+      RABBITMQ_URL: amqp://testuser:testpassword@rabbitmq:5672/
+      PIPELINE_ROLE: ingest
+      EXTRACTION_MODE: local_text
       S3_ENDPOINT_URL: http://localstack:4566
-      AWS_ACCESS_KEY_ID: testing
-      AWS_SECRET_ACCESS_KEY: testing
-      AWS_DEFAULT_REGION: us-east-1
+      AWS_ACCESS_KEY_ID: test
+      AWS_SECRET_ACCESS_KEY: test
       S3_BUCKET_INVOICES: invoices
       S3_BUCKET_PROCESSED: processed-invoices
-      LOG_LEVEL: DEBUG
-      PORT: 8004
-      # Mock AI services for testing
-      OPENAI_API_KEY: test-key
-      OPENAI_MODEL: gpt-3.5-turbo
-      ENABLE_OCR: "false"  # Disable OCR for faster testing
     ports:
-      - "8004:8004"
-    depends_on:
+    - 127.0.0.1:8003:8000
+    depends_on: &id002
       postgres:
         condition: service_healthy
       rabbitmq:
         condition: service_healthy
-      localstack:
-        condition: service_healthy
-      ingest:
-        condition: service_healthy
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8004/health/live"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
-
-  match:
-    build:
-      context: ./services/match
-      dockerfile: Dockerfile
-    image: invoiceflow/match:e2e
-    container_name: invoiceflow-match-e2e
+    healthcheck: &id003
+      test:
+      - CMD
+      - python
+      - -c
+      - import urllib.request; urllib.request.urlopen("http://localhost:8000/health/ready")
+      interval: 3s
+      timeout: 5s
+      retries: 30
+  extract:
+    build: *id001
     environment:
-      DATABASE_URL: postgresql+asyncpg://testuser:testpassword@postgres:5432/invoiceflow_test
-      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
-      MATCH_AMOUNT_TOLERANCE: "0.02"
-      LOG_LEVEL: DEBUG
-      PORT: 8005
+      DATABASE_URL: postgresql://testuser:testpassword@postgres:5432/invoiceflow_test
+      RABBITMQ_URL: amqp://testuser:testpassword@rabbitmq:5672/
+      PIPELINE_ROLE: extract
+      EXTRACTION_MODE: local_text
+      S3_ENDPOINT_URL: http://localstack:4566
+      AWS_ACCESS_KEY_ID: test
+      AWS_SECRET_ACCESS_KEY: test
+      S3_BUCKET_INVOICES: invoices
+      S3_BUCKET_PROCESSED: processed-invoices
     ports:
-      - "8005:8005"
-    depends_on:
-      postgres:
-        condition: service_healthy
-      rabbitmq:
-        condition: service_healthy
-      extract:
-        condition: service_healthy
-    restart: unless-stopped
+    - 127.0.0.1:8004:8000
+    depends_on: *id002
+    healthcheck: *id003
+  match:
+    build: *id001
+    environment:
+      DATABASE_URL: postgresql://testuser:testpassword@postgres:5432/invoiceflow_test
+      RABBITMQ_URL: amqp://testuser:testpassword@rabbitmq:5672/
+      PIPELINE_ROLE: match
+      EXTRACTION_MODE: local_text
+      S3_ENDPOINT_URL: http://localstack:4566
+      AWS_ACCESS_KEY_ID: test
+      AWS_SECRET_ACCESS_KEY: test
+      S3_BUCKET_INVOICES: invoices
+      S3_BUCKET_PROCESSED: processed-invoices
+    ports:
+    - 127.0.0.1:8005:8000
+    depends_on: *id002
+    healthcheck: *id003
+  localstack:
+    image: localstack/localstack:4.13.1
+    environment:
+      SERVICES: s3
+      AWS_DEFAULT_REGION: us-east-1
+    ports:
+    - 127.0.0.1:4566:4566
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8005/health/live"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
-
-  # Wait for all services
-  wait-for-services:
-    image: busybox:latest
-    container_name: invoiceflow-wait-e2e
-    depends_on:
-      ingest:
-        condition: service_healthy
-      extract:
-        condition: service_healthy
-      match:
-        condition: service_healthy
-    command: |
-      sh -c '
-        echo "All services are ready for testing!"
-        echo "Ingest: http://localhost:8003"
-        echo "Extract: http://localhost:8004" 
-        echo "Match: http://localhost:8005"
-        echo "PostgreSQL: postgres://testuser:testpassword@localhost:5432/invoiceflow_test"
-        echo "RabbitMQ: amqp://guest:guest@localhost:5672/"
-        echo "S3 (LocalStack): http://localhost:4566"
-      '
-
+      test:
+      - CMD
+      - awslocal
+      - s3
+      - ls
+      interval: 3s
+      timeout: 5s
+      retries: 30
 volumes:
-  postgres_data:
-    driver: local
-  rabbitmq_data:
-    driver: local
-  localstack_data:
-    driver: local
-
-networks:
-  default:
-    driver: bridge 
+  pipeline_postgres: null
+  pipeline_rabbitmq: null

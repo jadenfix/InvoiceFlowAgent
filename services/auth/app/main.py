@@ -5,6 +5,7 @@ Entry point with all components integrated
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import JSONResponse
+from fastapi.exceptions import RequestValidationError
 from app.core.config import settings
 from app.core.database import init_db, close_db
 from app.core.logging import get_logger
@@ -20,20 +21,17 @@ async def lifespan(app: FastAPI):
     # Startup
     logger.info("Starting InvoiceFlow Auth Service...")
     
-    # Initialize database
-    if not init_db():
-        logger.error("Failed to initialize database connection")
-        raise RuntimeError("Database initialization failed")
-    
-    logger.info("Database initialized successfully")
-    logger.info(f"Auth service started in {settings.environment} environment")
-    
-    yield
-    
-    # Shutdown
-    logger.info("Shutting down InvoiceFlow Auth Service...")
-    close_db()
-    logger.info("Auth service shut down complete")
+    try:
+        if not init_db():
+            logger.error("Failed to initialize database connection")
+            raise RuntimeError("Database initialization failed")
+        logger.info("Database initialized successfully")
+        logger.info(f"Auth service started in {settings.environment} environment")
+        yield
+    finally:
+        logger.info("Shutting down InvoiceFlow Auth Service...")
+        close_db()
+        logger.info("Auth service shut down complete")
 
 
 # Create FastAPI application
@@ -67,6 +65,15 @@ async def root():
     }
 
 
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request, exc: RequestValidationError):
+    """Report invalid fields without echoing submitted passwords or other input."""
+    return JSONResponse(status_code=422, content={
+        "error": "Validation failed", "message": "Invalid request data",
+        "details": [{"field": ".".join(str(p) for p in e["loc"]), "message": e["msg"], "type": e["type"]} for e in exc.errors()],
+    })
+
+
 @app.exception_handler(HTTPException)
 async def http_exception_handler(request, exc: HTTPException):
     """Global HTTP exception handler."""
@@ -86,7 +93,7 @@ async def general_exception_handler(request, exc: Exception):
         status_code=500,
         content={
             "error": "Internal server error",
-            "message": "An unexpected error occurred"
+            "message": "An internal error occurred"
         }
     )
 

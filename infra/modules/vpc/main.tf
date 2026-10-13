@@ -34,13 +34,13 @@ resource "aws_internet_gateway" "main" {
 locals {
   # Calculate the number of bits needed for subnets
   subnet_bits = ceil(log(length(var.availability_zones) * 2, 2))
-  
+
   # Create CIDR blocks for subnets
   public_subnets = [
     for i, az in var.availability_zones :
     cidrsubnet(var.vpc_cidr, local.subnet_bits, i)
   ]
-  
+
   private_subnets = [
     for i, az in var.availability_zones :
     cidrsubnet(var.vpc_cidr, local.subnet_bits, i + length(var.availability_zones))
@@ -54,11 +54,11 @@ resource "aws_subnet" "public" {
   vpc_id                  = aws_vpc.main.id
   cidr_block              = local.public_subnets[count.index]
   availability_zone       = var.availability_zones[count.index]
-  map_public_ip_on_launch = true
+  map_public_ip_on_launch = false
 
   tags = merge(var.tags, {
-    Name = "${var.project_name}-${var.environment}-public-${var.availability_zones[count.index]}"
-    Type = "Public"
+    Name                     = "${var.project_name}-${var.environment}-public-${var.availability_zones[count.index]}"
+    Type                     = "Public"
     "kubernetes.io/role/elb" = "1"
   })
 }
@@ -72,8 +72,8 @@ resource "aws_subnet" "private" {
   availability_zone = var.availability_zones[count.index]
 
   tags = merge(var.tags, {
-    Name = "${var.project_name}-${var.environment}-private-${var.availability_zones[count.index]}"
-    Type = "Private"
+    Name                              = "${var.project_name}-${var.environment}-private-${var.availability_zones[count.index]}"
+    Type                              = "Private"
     "kubernetes.io/role/internal-elb" = "1"
   })
 }
@@ -190,10 +190,12 @@ resource "aws_vpc_endpoint" "ecr_dkr" {
 
 # Security Group for VPC Endpoints
 resource "aws_security_group" "vpc_endpoints" {
+  description = "Private AWS service endpoints accessible only from this VPC"
   name_prefix = "${var.project_name}-${var.environment}-vpc-endpoints-"
   vpc_id      = aws_vpc.main.id
 
   ingress {
+    description = "HTTPS service requests from VPC workloads"
     from_port   = 443
     to_port     = 443
     protocol    = "tcp"
@@ -201,10 +203,11 @@ resource "aws_security_group" "vpc_endpoints" {
   }
 
   egress {
+    description = "Endpoint traffic within the VPC"
     from_port   = 0
     to_port     = 0
     protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
+    cidr_blocks = [var.vpc_cidr]
   }
 
   tags = merge(var.tags, {
@@ -213,4 +216,28 @@ resource "aws_security_group" "vpc_endpoints" {
 }
 
 # Data source for current region
-data "aws_region" "current" {} 
+data "aws_region" "current" {}
+resource "aws_flow_log" "main" {
+  log_destination_type = "s3"
+  log_destination      = var.flow_log_destination
+  traffic_type         = "ALL"
+  vpc_id               = aws_vpc.main.id
+  tags                 = var.tags
+}
+# Keep node traffic private while retaining the AWS APIs used by IRSA, CNI and monitoring.
+resource "aws_vpc_endpoint" "node_services" {
+  for_each            = toset(["logs", "sts", "ssm", "ssmmessages", "ec2messages", "ec2", "eks"])
+  vpc_id              = aws_vpc.main.id
+  service_name        = "com.amazonaws.${data.aws_region.current.name}.${each.key}"
+  vpc_endpoint_type   = "Interface"
+  subnet_ids          = aws_subnet.private[*].id
+  security_group_ids  = [aws_security_group.vpc_endpoints.id]
+  private_dns_enabled = true
+  tags                = var.tags
+}
+
+# Adopt and close the AWS-created default group; application groups remain explicit.
+resource "aws_default_security_group" "restricted" {
+  vpc_id = aws_vpc.main.id
+  tags   = var.tags
+}

@@ -60,7 +60,7 @@ output "kms_key_id" {
 
 output "secrets_manager_secret_arn" {
   description = "ARN of the Secrets Manager secret containing the RDS password"
-  value       = aws_secretsmanager_secret.rds_password.arn
+  value       = aws_rds_cluster.main.master_user_secret[0].secret_arn
 }
 
 output "enhanced_monitoring_iam_role_arn" {

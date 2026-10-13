@@ -1,0 +1,40 @@
+name: Durable PDF pipeline
+on: [push, pull_request, workflow_call]
+jobs:
+  pdf-queue-postgres-e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install -r services/pipeline/requirements.txt
+      - run: python -m pytest tests/pipeline tests/legacy/test_document_contract.py -q
+      - run: docker compose -f docker-compose.pipeline.yml up -d --build --wait --wait-timeout 240
+      - run: python scripts/check_pipeline_http.py
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci
+        working-directory: frontend
+      - run: npm run lint && npm run format:check && npm run build && npx vitest run --threads false && npm run test:exception:coverage -- --threads false
+        working-directory: frontend
+        env:
+          VITE_AUTH_SERVICE_URL: http://127.0.0.1:8003
+          VITE_EXCEPTION_API_URL: http://127.0.0.1:8003
+      - run: npx playwright install --with-deps chromium
+        working-directory: frontend
+      - run: node scripts/check-browser.cjs
+        working-directory: frontend
+      - if: always()
+        run: docker compose -f docker-compose.pipeline.yml logs --no-color | tee pipeline-e2e.log
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: real-pipeline-log
+          path: pipeline-e2e.log
+      - if: always()
+        run: docker compose -f docker-compose.pipeline.yml down

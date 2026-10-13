@@ -14,28 +14,8 @@ terraform {
   }
 }
 
-# Generate random password for RDS
-resource "random_password" "master" {
-  length  = 16
-  special = true
-}
-
-# Store password in AWS Secrets Manager
-resource "aws_secretsmanager_secret" "rds_password" {
-  name                    = "${var.project_name}-${var.environment}-rds-master-password"
-  description             = "Master password for RDS cluster"
-  recovery_window_in_days = 7
-  
-  tags = var.tags
-}
-
-resource "aws_secretsmanager_secret_version" "rds_password" {
-  secret_id = aws_secretsmanager_secret.rds_password.id
-  secret_string = jsonencode({
-    username = var.master_username
-    password = random_password.master.result
-  })
-}
+# RDS manages and automatically rotates the master secret every seven days.
+# https://docs.aws.amazon.com/AmazonRDS/latest/AuroraUserGuide/rds-secrets-manager.html
 
 # DB Subnet Group
 resource "aws_db_subnet_group" "main" {
@@ -49,6 +29,7 @@ resource "aws_db_subnet_group" "main" {
 
 # Security Group for RDS
 resource "aws_security_group" "rds" {
+  description = "PostgreSQL access limited to application VPC workloads"
   name_prefix = "${var.project_name}-${var.environment}-rds-"
   vpc_id      = var.vpc_id
 
@@ -64,8 +45,8 @@ resource "aws_security_group" "rds" {
     from_port   = 0
     to_port     = 0
     protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-    description = "All outbound traffic"
+    cidr_blocks = [data.aws_vpc.main.cidr_block]
+    description = "Database traffic limited to the VPC"
   }
 
   tags = merge(var.tags, {
@@ -74,7 +55,10 @@ resource "aws_security_group" "rds" {
 }
 
 # KMS Key for RDS encryption
+data "aws_caller_identity" "current" {}
+
 resource "aws_kms_key" "rds" {
+  policy                  = jsonencode({ Version = "2012-10-17", Statement = [{ Sid = "EnableAccountIAM", Effect = "Allow", Principal = { AWS = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:root" }, Action = "kms:*", Resource = "*" }] })
   description             = "RDS encryption key for ${var.project_name}-${var.environment}"
   deletion_window_in_days = 7
   enable_key_rotation     = true
@@ -102,7 +86,7 @@ resource "aws_rds_cluster_parameter_group" "main" {
 
   parameter {
     name  = "log_min_duration_statement"
-    value = "1000"  # Log queries longer than 1 second
+    value = "1000" # Log queries longer than 1 second
   }
 
   parameter {
@@ -128,33 +112,36 @@ resource "aws_db_parameter_group" "main" {
 # RDS Aurora Cluster
 resource "aws_rds_cluster" "main" {
   cluster_identifier = "${var.project_name}-${var.environment}-cluster"
-  
-  engine          = "aurora-postgresql"
-  engine_version  = var.engine_version
-  database_name   = var.database_name
-  master_username = var.master_username
-  master_password = random_password.master.result
 
-  backup_retention_period   = var.backup_retention_period
-  preferred_backup_window   = var.backup_window
+  engine                              = "aurora-postgresql"
+  engine_version                      = var.engine_version
+  database_name                       = var.database_name
+  master_username                     = var.master_username
+  manage_master_user_password         = true
+  master_user_secret_kms_key_id       = aws_kms_key.rds.arn
+  iam_database_authentication_enabled = true
+  copy_tags_to_snapshot               = true
+
+  backup_retention_period      = var.backup_retention_period
+  preferred_backup_window      = var.backup_window
   preferred_maintenance_window = var.maintenance_window
-  
-  db_cluster_parameter_group_name = aws_rds_cluster_parameter_group.main.name
-  db_subnet_group_name           = aws_db_subnet_group.main.name
-  vpc_security_group_ids         = [aws_security_group.rds.id]
 
-  storage_encrypted   = true
-  kms_key_id         = aws_kms_key.rds.arn
-  
+  db_cluster_parameter_group_name = aws_rds_cluster_parameter_group.main.name
+  db_subnet_group_name            = aws_db_subnet_group.main.name
+  vpc_security_group_ids          = [aws_security_group.rds.id]
+
+  storage_encrypted = true
+  kms_key_id        = aws_kms_key.rds.arn
+
   # Enable logging
   enabled_cloudwatch_logs_exports = ["postgresql"]
-  
+
   # Enable backtrack (if supported)
   # backtrack_window = 24
-  
-  deletion_protection = var.environment == "prod" ? true : false
-  skip_final_snapshot = var.environment == "prod" ? false : true
-  final_snapshot_identifier = var.environment == "prod" ? "${var.project_name}-${var.environment}-final-snapshot-${formatdate("YYYY-MM-DD-hhmm", timestamp())}" : null
+
+  deletion_protection       = true
+  skip_final_snapshot       = false
+  final_snapshot_identifier = "${var.project_name}-${var.environment}-final-snapshot"
 
   tags = merge(var.tags, {
     Name = "${var.project_name}-${var.environment}-aurora-cluster"
@@ -171,10 +158,12 @@ resource "aws_rds_cluster_instance" "cluster_instances" {
   engine_version     = aws_rds_cluster.main.engine_version
 
   db_parameter_group_name = aws_db_parameter_group.main.name
-  
-  performance_insights_enabled = true
-  monitoring_interval         = 60
-  monitoring_role_arn         = aws_iam_role.rds_enhanced_monitoring.arn
+
+  performance_insights_enabled    = true
+  performance_insights_kms_key_id = aws_kms_key.rds.arn
+  auto_minor_version_upgrade      = true
+  monitoring_interval             = 60
+  monitoring_role_arn             = aws_iam_role.rds_enhanced_monitoring.arn
 
   tags = merge(var.tags, {
     Name = "${var.project_name}-${var.environment}-aurora-instance-${count.index}"
@@ -206,10 +195,18 @@ resource "aws_iam_role_policy_attachment" "rds_enhanced_monitoring" {
   policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonRDSEnhancedMonitoringRole"
 }
 
+module "database_log_key" {
+  source           = "../cloudwatch_key"
+  name             = "${var.project_name}-${var.environment}-database"
+  log_group_prefix = "/aws/rds/cluster/"
+  tags             = var.tags
+}
+
 # CloudWatch Log Group
 resource "aws_cloudwatch_log_group" "rds" {
   name              = "/aws/rds/cluster/${aws_rds_cluster.main.cluster_identifier}/postgresql"
-  retention_in_days = 30
+  retention_in_days = 365
+  kms_key_id        = module.database_log_key.key_arn
 
   tags = var.tags
 }
@@ -217,4 +214,38 @@ resource "aws_cloudwatch_log_group" "rds" {
 # Data source for VPC
 data "aws_vpc" "main" {
   id = var.vpc_id
-} 
+}
+# Independent durable recovery copies in addition to Aurora automated snapshots.
+resource "aws_backup_vault" "database" {
+  name        = "${var.project_name}-${var.environment}-database"
+  kms_key_arn = aws_kms_key.rds.arn
+  tags        = var.tags
+}
+resource "aws_backup_plan" "database" {
+  name = "${var.project_name}-${var.environment}-database"
+  rule {
+    rule_name         = "daily_database_recovery"
+    target_vault_name = aws_backup_vault.database.name
+    schedule          = "cron(0 5 * * ? *)"
+    start_window      = 60
+    completion_window = 180
+    lifecycle { delete_after = 35 }
+  }
+  tags = var.tags
+}
+resource "aws_iam_role" "backup" {
+  name               = "${var.project_name}-${var.environment}-database-backup"
+  assume_role_policy = jsonencode({ Version = "2012-10-17", Statement = [{ Effect = "Allow", Principal = { Service = "backup.amazonaws.com" }, Action = "sts:AssumeRole", Condition = { StringEquals = { "aws:SourceAccount" = data.aws_caller_identity.current.account_id }, ArnLike = { "aws:SourceArn" = "arn:aws:backup:*:${data.aws_caller_identity.current.account_id}:*" } } }] })
+  tags               = var.tags
+}
+resource "aws_iam_role_policy_attachment" "backup" {
+  role       = aws_iam_role.backup.name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSBackupServiceRolePolicyForBackup"
+}
+resource "aws_backup_selection" "database" {
+  name         = "${var.project_name}-${var.environment}-database"
+  plan_id      = aws_backup_plan.database.id
+  iam_role_arn = aws_iam_role.backup.arn
+  resources    = [aws_rds_cluster.main.arn]
+  depends_on   = [aws_iam_role_policy_attachment.backup]
+}

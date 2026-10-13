@@ -2,7 +2,6 @@
 Core configuration for InvoiceFlow Auth Service
 Handles environment variables, validation, and secure defaults
 """
-import os
 import secrets
 from typing import Optional
 from pydantic.v1 import BaseSettings, validator
@@ -44,10 +43,10 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
     
     @validator("jwt_secret")
-    def validate_jwt_secret(cls, v):
+    def validate_jwt_secret(cls, v, values):
         """Ensure JWT secret is provided and secure."""
         if not v:
-            if os.getenv("ENVIRONMENT", "development") == "production":
+            if values.get("environment") == "production":
                 raise ValueError("JWT_SECRET is required in production")
             # Generate a random secret for development
             return secrets.token_urlsafe(32)
@@ -56,10 +55,10 @@ class Settings(BaseSettings):
         return v
     
     @validator("database_url")
-    def validate_database_url(cls, v):
+    def validate_database_url(cls, v, values):
         """Ensure database URL is provided."""
         if not v:
-            if os.getenv("ENVIRONMENT", "development") == "production":
+            if values.get("environment") == "production":
                 raise ValueError("DATABASE_URL is required in production")
             # Default to local database for development
             return "postgresql://invoiceflow:password@localhost:5432/invoiceflow_auth"
@@ -68,7 +67,7 @@ class Settings(BaseSettings):
     @validator("environment")
     def validate_environment(cls, v):
         """Validate environment value."""
-        valid_envs = ["development", "staging", "production"]
+        valid_envs = ["development", "testing", "staging", "production"]
         if v not in valid_envs:
             raise ValueError(f"Environment must be one of: {valid_envs}")
         return v

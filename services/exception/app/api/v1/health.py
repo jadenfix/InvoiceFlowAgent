@@ -1,8 +1,8 @@
 """Health check endpoints."""
 
 from datetime import datetime
-from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import text
+from fastapi import APIRouter, HTTPException, status
 
 from ...models.schemas import HealthResponse, ReadinessResponse
 from ...core.config import settings
@@ -19,35 +19,37 @@ async def liveness_probe():
         status="healthy",
         service=settings.service_name,
         version=settings.service_version,
-        timestamp=datetime.utcnow()
+        timestamp=datetime.utcnow(),
     )
 
 
 @router.get("/ready", response_model=ReadinessResponse)
 async def readiness_probe():
     """Readiness probe endpoint."""
-    
+
     checks = {}
     overall_status = "healthy"
-    
+
     # Only check dependencies if not in development mode
     if settings.environment != "development":
         # Check database connection
         try:
             from ...models.database import get_db_session
+
             # Try to get a session and execute a simple query
             async with get_db_session() as session:
-                await session.execute("SELECT 1")
+                await session.execute(text("SELECT 1"))
             checks["database"] = "healthy"
             logger.debug("Database check passed")
         except Exception as e:
             checks["database"] = f"unhealthy: {str(e)}"
             overall_status = "unhealthy"
             logger.error("Database check failed", error=str(e))
-        
+
         # Check RabbitMQ connection
         try:
             from ...services.message_service import message_service
+
             if await message_service.health_check():
                 checks["rabbitmq"] = "healthy"
                 logger.debug("RabbitMQ check passed")
@@ -64,17 +66,16 @@ async def readiness_probe():
         checks["database"] = "skipped (development mode)"
         checks["rabbitmq"] = "skipped (development mode)"
         logger.debug("Health checks skipped in development mode")
-    
+
     if overall_status == "unhealthy" and settings.environment == "production":
         raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Service not ready"
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Service not ready"
         )
-    
+
     return ReadinessResponse(
         status=overall_status,
         service=settings.service_name,
         version=settings.service_version,
         timestamp=datetime.utcnow(),
-        checks=checks
-    ) 
+        checks=checks,
+    )

@@ -1,10 +1,12 @@
 """Logging configuration for the matching service."""
 
 import logging
-import structlog
 import sys
-from typing import Any, Dict
 from contextvars import ContextVar
+from typing import Any, Dict
+
+import structlog
+from structlog.types import Processor
 
 from .config import settings
 
@@ -14,7 +16,12 @@ request_id_ctx: ContextVar[str] = ContextVar("request_id", default="")
 
 def configure_logging() -> None:
     """Configure structured logging for the application."""
-    
+
+    renderer: Processor
+    if settings.log_level == "DEBUG":
+        renderer = structlog.processors.JSONRenderer()
+    else:
+        renderer = structlog.dev.ConsoleRenderer()
     # Configure structlog
     structlog.configure(
         processors=[
@@ -22,8 +29,7 @@ def configure_logging() -> None:
             structlog.processors.add_log_level,
             structlog.processors.StackInfoRenderer(),
             structlog.dev.set_exc_info,
-            structlog.processors.JSONRenderer() if settings.log_level == "DEBUG" 
-            else structlog.dev.ConsoleRenderer(),
+            renderer,
         ],
         wrapper_class=structlog.make_filtering_bound_logger(
             getattr(logging, settings.log_level.upper())
@@ -32,7 +38,7 @@ def configure_logging() -> None:
         logger_factory=structlog.PrintLoggerFactory(),
         cache_logger_on_first_use=True,
     )
-    
+
     # Configure standard logging
     logging.basicConfig(
         format="%(message)s",
@@ -57,25 +63,17 @@ def get_request_id() -> str:
 
 
 def log_matching_event(
-    logger: structlog.BoundLogger,
-    event: str,
-    request_id: str,
-    **kwargs: Any
+    logger: structlog.BoundLogger, event: str, request_id: str, **kwargs: Any
 ) -> None:
     """Log a matching-related event with context."""
-    logger.info(
-        event,
-        request_id=request_id,
-        service="match-service",
-        **kwargs
-    )
+    logger.info(event, request_id=request_id, service="match-service", **kwargs)
 
 
 def log_error(
     logger: structlog.BoundLogger,
     error: Exception,
     request_id: str,
-    context: Dict[str, Any] = None
+    context: Dict[str, Any] | None = None,
 ) -> None:
     """Log an error with full context."""
     logger.error(
@@ -85,4 +83,4 @@ def log_error(
         error_type=type(error).__name__,
         error_message=str(error),
         **(context or {})
-    ) 
+    )

@@ -2,26 +2,34 @@
  * Detail Page - Page for reviewing individual invoices
  */
 
-import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeftIcon, ExclamationTriangleIcon, CheckCircleIcon } from '@heroicons/react/24/outline';
-import { useInvoiceDetail, useApproveInvoice, useRejectInvoice } from '../hooks/useApi';
-import { InvoiceViewer } from '../components/InvoiceViewer';
-import { ReviewForm } from '../components/ReviewForm';
-import { ApproveRequest, RejectRequest } from '../types';
+import { useState, useEffect } from "react";
+import { useParams, useNavigate } from "react-router-dom";
+import {
+  ArrowLeftIcon,
+  ExclamationTriangleIcon,
+  CheckCircleIcon,
+} from "@heroicons/react/24/outline";
+import {
+  useInvoiceDetail,
+  useApproveInvoice,
+  useRejectInvoice,
+} from "../hooks/useApi";
+import { InvoiceViewer } from "../components/InvoiceViewer";
+import { ReviewForm } from "../components/ReviewForm";
+import { ApproveRequest, RejectRequest } from "../types";
 
 export function DetailPage() {
   const { invoiceId } = useParams<{ invoiceId: string }>();
   const navigate = useNavigate();
   const [showReviewForm, setShowReviewForm] = useState(false);
   const [showSuccessMessage, setShowSuccessMessage] = useState(false);
-  const [successAction, setSuccessAction] = useState<string>('');
+  const [successAction, setSuccessAction] = useState<string>("");
 
-  const { 
-    data: invoice, 
-    isLoading, 
+  const {
+    data: invoice,
+    isLoading,
     error,
-    refetch
+    refetch,
   } = useInvoiceDetail(invoiceId || null);
 
   const approveInvoice = useApproveInvoice();
@@ -30,22 +38,22 @@ export function DetailPage() {
   // Show success message after successful action
   useEffect(() => {
     if (approveInvoice.isSuccess || rejectInvoice.isSuccess) {
-      const action = approveInvoice.isSuccess ? 'approved' : 'rejected';
+      const action = approveInvoice.isSuccess ? "approved" : "rejected";
       setSuccessAction(action);
       setShowSuccessMessage(true);
       setShowReviewForm(false);
-      
+
       // Hide success message after 5 seconds
       const timer = setTimeout(() => {
         setShowSuccessMessage(false);
       }, 5000);
-      
+
       return () => clearTimeout(timer);
     }
   }, [approveInvoice.isSuccess, rejectInvoice.isSuccess]);
 
   const handleBack = () => {
-    navigate('/exception');
+    navigate("/exception");
   };
 
   const handleStartReview = () => {
@@ -58,22 +66,22 @@ export function DetailPage() {
 
   const handleApprove = async (request: ApproveRequest) => {
     if (!invoiceId) return;
-    
+
     try {
       await approveInvoice.mutateAsync({ invoiceId, request });
     } catch (error) {
-      console.error('Failed to approve invoice:', error);
+      console.error("Failed to approve invoice:", error);
       // Error will be handled by the mutation's error state
     }
   };
 
   const handleReject = async (request: RejectRequest) => {
     if (!invoiceId) return;
-    
+
     try {
       await rejectInvoice.mutateAsync({ invoiceId, request });
     } catch (error) {
-      console.error('Failed to reject invoice:', error);
+      console.error("Failed to reject invoice:", error);
       // Error will be handled by the mutation's error state
     }
   };
@@ -102,7 +110,9 @@ export function DetailPage() {
                 Error Loading Invoice
               </h3>
               <p className="mt-1 text-sm text-gray-500">
-                {error instanceof Error ? error.message : 'Failed to load invoice details'}
+                {error instanceof Error
+                  ? error.message
+                  : "Failed to load invoice details"}
               </p>
             </div>
           </div>
@@ -149,7 +159,8 @@ export function DetailPage() {
   }
 
   const isAlreadyReviewed = !!invoice.reviewed_by;
-  const canReview = !isAlreadyReviewed && invoice.matched_status === 'NEEDS_REVIEW';
+  const canReview =
+    !isAlreadyReviewed && invoice.matched_status === "NEEDS_REVIEW";
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -163,7 +174,7 @@ export function DetailPage() {
             <ArrowLeftIcon className="h-4 w-4 mr-1" />
             Back to Queue
           </button>
-          
+
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-2xl font-bold text-gray-900">
@@ -173,7 +184,7 @@ export function DetailPage() {
                 Review invoice details and approve or reject
               </p>
             </div>
-            
+
             {canReview && !showReviewForm && (
               <button
                 onClick={handleStartReview}
@@ -198,7 +209,8 @@ export function DetailPage() {
                 </h3>
                 <div className="mt-2 text-sm text-green-700">
                   <p>
-                    The invoice has been {successAction} and the status has been updated.
+                    The invoice has been {successAction} and the status has been
+                    updated.
                   </p>
                 </div>
               </div>
@@ -209,8 +221,16 @@ export function DetailPage() {
                     className="inline-flex bg-green-50 rounded-md p-1.5 text-green-500 hover:bg-green-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-green-50 focus:ring-green-600"
                   >
                     <span className="sr-only">Dismiss</span>
-                    <svg className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
-                      <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                    <svg
+                      className="h-3 w-3"
+                      viewBox="0 0 20 20"
+                      fill="currentColor"
+                    >
+                      <path
+                        fillRule="evenodd"
+                        d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
+                        clipRule="evenodd"
+                      />
                     </svg>
                   </button>
                 </div>
@@ -232,7 +252,9 @@ export function DetailPage() {
                 </h3>
                 <div className="mt-2 text-sm text-red-700">
                   <p>
-                    {approveInvoice.error?.message || rejectInvoice.error?.message || 'An error occurred during review'}
+                    {approveInvoice.error?.message ||
+                      rejectInvoice.error?.message ||
+                      "An error occurred during review"}
                   </p>
                 </div>
               </div>
@@ -254,7 +276,8 @@ export function DetailPage() {
                   Review Complete
                 </h3>
                 <p className="text-sm text-gray-600">
-                  This invoice has already been reviewed by {invoice.reviewed_by}.
+                  This invoice has already been reviewed by{" "}
+                  {invoice.reviewed_by}.
                 </p>
               </div>
             ) : !canReview ? (
@@ -281,7 +304,8 @@ export function DetailPage() {
                   Ready for Review
                 </h3>
                 <p className="text-sm text-gray-600 mb-4">
-                  This invoice needs manual review. Please examine the details and click "Start Review" to approve or reject.
+                  This invoice needs manual review. Please examine the details
+                  and click "Start Review" to approve or reject.
                 </p>
                 <button
                   onClick={handleStartReview}
@@ -296,4 +320,4 @@ export function DetailPage() {
       </div>
     </div>
   );
-} 
+}

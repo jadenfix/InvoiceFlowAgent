@@ -14,9 +14,11 @@ structlog==23.2.0
 pytest==7.4.3
 pytest-asyncio==0.21.1
 pytest-cov==4.1.0
-testcontainers==3.7.1
+pytest-timeout==2.2.0
+testcontainers[postgresql,rabbitmq]==3.7.1
 moto[s3]==4.2.13
 fakeredis==2.20.1
 factory-boy==3.3.0
 anyio>=3.7.1,<4.0.0
-greenlet==3.0.3 
+greenlet==3.0.3
+aiosqlite==0.20.0

@@ -1,3 +1,47 @@
+## Runnable durable invoice workflow
+
+```bash
+bash scripts/run_pipeline_demo.sh
+```
+
+Requires Docker Compose v2 and Python 3.11+. The canonical local stack uses actual
+PostgreSQL and RabbitMQ with durable volumes, plus three API/worker roles. Uploads
+are stored as actual PDF bytes and accepted work enters a transactional outbox.
+Workers extract embedded text, match purchase orders using the existing 2% decimal
+variance rule, and persist results. Outbox retries and idempotent workers preserve
+work through broker outages and duplicate delivery.
+
+This local extractor reads real **text PDFs** using pypdf. It accepts labeled
+`Vendor:`, `Invoice #:`, `Total Amount:`, `Currency:` and optional `PO Number:`
+lines. Scanned, malformed, ambiguous, or missing-field documents fail explicitly;
+this is a deterministic text extractor, not a validated OCR/LLM provider or a claim
+of general invoice extraction accuracy. No paid provider calls are made.
+
+The ingest API at http://127.0.0.1:8003 provides:
+
+- `POST /api/v1/purchase-orders` with `po_number`, positive `amount`, `currency`.
+- `POST /api/v1/ingest/upload` with multipart PDF `file` (max10MB).
+- `GET /api/v1/ingest/status/{request_id}` and `/api/v1/ingest/stats` read real data.
+- `POST /auth/register`, `/auth/login`, `/auth/logout`, `GET /auth/me`: actual local
+  registration/authentication with PBKDF2 hashes and persisted expiring sessions.
+- Bearer-authenticated `/api/v1/review/queue`, `/api/v1/review/{id}`,
+  `/api/v1/review/{id}/document`, and POST `/{id}/approve` or `/{id}/reject`.
+  Reviewer identity comes from the session; duplicate decisions return409.
+
+The local stack's ports bind to loopback. It is a single-team local review lane;
+public deployment needs tenancy, registration policy and request rate limits.
+Frontend development: set `VITE_AUTH_SERVICE_URL` and `VITE_EXCEPTION_API_URL` to
+`http://127.0.0.1:8003`, then run the frontend's normal Vite development command.
+
+`Durable PDF pipeline` CI executes actual HTTP→PDF→queue→Postgres tests, including
+approval/rejection, authentication errors, missing/invalid documents, amount and
+currency mismatches, duplicate delivery, stopped workers, stopped broker, and
+application/database restart persistence. Source revision and CI receipts gate
+recording. The older cloud/service scaffold instructions below describe separate
+integrations and do not establish live OCR/LLM, S3, billing or ERP readiness.
+
+---
+
 # Invoice Processing System
 
 A production-grade microservices architecture for automated invoice processing using FastAPI, PostgreSQL, OpenSearch, and RabbitMQ.
@@ -1205,4 +1249,38 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ---
 
-Built with ❤️ by the InvoiceFlow team 
+Built with ❤️ by the InvoiceFlow team
+
+## Frontend review workflow
+
+```sh
+cd frontend
+npm ci
+npm run lint
+npm test -- --run --threads=false
+npm run build
+npm run dev
+```
+
+The signed-in dashboard links to `/exception`, where the existing review service
+supplies the queue and invoice details. Queue pagination, accessible filtering,
+keyboard sorting, and approve/reject forms are available. Set
+`VITE_EXCEPTION_API_URL` to the exception service URL (default
+`http://localhost:8007`) and run the authentication and exception services before
+using the frontend. The frontend does not supply synthetic invoices when the
+service is unavailable; it shows a retryable error.
+
+The component suite verifies queue interactions and pagination. These tests and
+a production build do not establish live OCR/model accuracy or the full deployed
+microservice pipeline. Record a demo only after exercising authentication → real
+queue → invoice review → persisted approval/rejection against the intended stack.
+
+## CI check status
+
+Frontend formatting, lint, 18 tests, and build pass locally. The CI coverage runner
+uses Vitest options rather than Jest flags and retains the exception module's
+95% coverage requirement. Current exception coverage fails that requirement:
+22.84% lines/statements, 50% functions, 74.19% branches. This is a real test gap,
+not evidence that the full workflow is verified. Backend fatal-error lint passes,
+but the existing full style/complexity check reports 208 findings and Black would
+reformat 15 backend files. These gates remain enabled.

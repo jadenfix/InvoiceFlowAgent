@@ -2,7 +2,7 @@
 Health check endpoints for InvoiceFlow Auth Service
 Provides liveness and readiness probes for Kubernetes
 """
-import time
+from time import time as clock
 from fastapi import APIRouter, status
 from fastapi.responses import JSONResponse
 from app.core.database import check_db_health
@@ -13,7 +13,7 @@ logger = get_logger("auth.health")
 router = APIRouter(tags=["health"])
 
 # Track service start time
-service_start_time = time.time()
+service_start_time = clock()
 
 
 @router.get("/healthz")
@@ -29,13 +29,13 @@ async def liveness_probe():
     - HTTP 503 if service is critically failed
     """
     try:
-        uptime_seconds = int(time.time() - service_start_time)
+        uptime_seconds = int(clock() - service_start_time)
         
         return {
             "status": "alive",
             "service": "invoiceflow-auth",
             "uptime_seconds": uptime_seconds,
-            "timestamp": int(time.time()),
+            "timestamp": int(clock()),
         }
         
     except Exception as e:
@@ -67,7 +67,7 @@ async def readiness_probe():
         db_health = await check_db_health()
         
         # Calculate uptime
-        uptime_seconds = int(time.time() - service_start_time)
+        uptime_seconds = int(clock() - service_start_time)
         
         # Service is ready if database is healthy
         is_ready = db_health["status"] == "healthy"
@@ -76,7 +76,7 @@ async def readiness_probe():
             "status": "ready" if is_ready else "not_ready",
             "service": "invoiceflow-auth",
             "uptime_seconds": uptime_seconds,
-            "timestamp": int(time.time()),
+            "timestamp": int(clock()),
             "checks": {
                 "database": db_health,
                 "configuration": {
@@ -102,7 +102,7 @@ async def readiness_probe():
                 "status": "not_ready",
                 "service": "invoiceflow-auth",
                 "error": str(e),
-                "timestamp": int(time.time()),
+                "timestamp": int(clock()),
             }
         )
 
@@ -121,14 +121,14 @@ async def detailed_health_check():
     - Performance metrics
     """
     try:
-        start_time = time.time()
+        start_time = clock()
         
         # Check database health
         db_health = await check_db_health()
         
         # Calculate uptime
-        uptime_seconds = int(time.time() - service_start_time)
-        check_duration_ms = round((time.time() - start_time) * 1000, 2)
+        uptime_seconds = int(clock() - service_start_time)
+        check_duration_ms = round((clock() - start_time) * 1000, 2)
         
         # Determine overall status
         overall_status = "healthy" if db_health["status"] == "healthy" else "unhealthy"
@@ -140,7 +140,7 @@ async def detailed_health_check():
             "environment": settings.environment,
             "uptime_seconds": uptime_seconds,
             "check_duration_ms": check_duration_ms,
-            "timestamp": int(time.time()),
+            "timestamp": int(clock()),
             "checks": {
                 "database": db_health,
                 "configuration": {
@@ -178,6 +178,6 @@ async def detailed_health_check():
                 "status": "unhealthy",
                 "service": "invoiceflow-auth",
                 "error": str(e),
-                "timestamp": int(time.time()),
+                "timestamp": int(clock()),
             }
         ) 

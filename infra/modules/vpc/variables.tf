@@ -22,4 +22,8 @@ variable "tags" {
   description = "A map of tags to assign to the resource"
   type        = map(string)
   default     = {}
-} 
+}
+variable "flow_log_destination" {
+  description = "Actual encrypted audit bucket ARN with a VPC flow-log prefix"
+  type        = string
+}

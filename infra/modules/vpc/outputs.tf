@@ -56,4 +56,5 @@ output "private_route_table_ids" {
 output "vpc_endpoints_security_group_id" {
   description = "ID of the VPC endpoints security group"
   value       = aws_security_group.vpc_endpoints.id
-} 
+}
+output "s3_endpoint_prefix_list_id" { value = aws_vpc_endpoint.s3.prefix_list_id }

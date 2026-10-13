@@ -2,13 +2,13 @@
  * Queue Page - Main page for displaying invoices needing review
  */
 
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { ExclamationTriangleIcon } from '@heroicons/react/24/outline';
-import { useReviewQueue } from '../hooks/useApi';
-import { QueueTable } from '../components/QueueTable';
-import { Pagination } from '../components/Pagination';
-import { QueueFilters } from '../types';
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { ExclamationTriangleIcon } from "@heroicons/react/24/outline";
+import { useReviewQueue } from "../hooks/useApi";
+import { QueueTable } from "../components/QueueTable";
+import { Pagination } from "../components/Pagination";
+import { QueueFilters } from "../types";
 
 export function QueuePage() {
   const navigate = useNavigate();
@@ -16,11 +16,11 @@ export function QueuePage() {
   const [pageSize] = useState(20);
   const [filters, setFilters] = useState<QueueFilters>({});
 
-  const { 
-    data: queueData, 
-    isLoading, 
+  const {
+    data: queueData,
+    isLoading,
     error,
-    refetch
+    refetch,
   } = useReviewQueue(page, pageSize, filters);
 
   const handleViewInvoice = (invoiceId: string) => {
@@ -47,7 +47,9 @@ export function QueuePage() {
                 Error Loading Queue
               </h3>
               <p className="mt-1 text-sm text-gray-500">
-                {error instanceof Error ? error.message : 'Failed to load review queue'}
+                {error instanceof Error
+                  ? error.message
+                  : "Failed to load review queue"}
               </p>
             </div>
           </div>
@@ -121,7 +123,7 @@ export function QueuePage() {
                 No invoices need review
               </h3>
               <p className="mt-1 text-sm text-gray-500">
-                All invoices have been processed and reviewed.
+                There are currently no invoices in the manual review queue.
               </p>
             </div>
           )}
@@ -129,4 +131,4 @@ export function QueuePage() {
       </div>
     </div>
   );
-} 
+}

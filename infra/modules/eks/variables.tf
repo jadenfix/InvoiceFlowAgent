@@ -6,7 +6,7 @@ variable "cluster_name" {
 variable "cluster_version" {
   description = "Kubernetes version to use for the EKS cluster"
   type        = string
-  default     = "1.28"
+  default     = "1.35"
 }
 
 variable "vpc_id" {
@@ -27,7 +27,7 @@ variable "node_groups" {
     min_capacity     = number
     instance_types   = list(string)
     capacity_type    = string
-    labels          = map(string)
+    labels           = map(string)
     taints = list(object({
       key    = string
       value  = string
@@ -41,4 +41,8 @@ variable "tags" {
   description = "A map of tags to assign to the resource"
   type        = map(string)
   default     = {}
-} 
+}
+variable "s3_prefix_list_id" {
+  description = "Actual S3 gateway endpoint prefix list for artifact access"
+  type        = string
+}

@@ -57,9 +57,9 @@ output "node_groups" {
   description = "EKS node groups"
   value = {
     for k, v in aws_eks_node_group.main : k => {
-      arn           = v.arn
-      status        = v.status
-      capacity_type = v.capacity_type
+      arn            = v.arn
+      status         = v.status
+      capacity_type  = v.capacity_type
       scaling_config = v.scaling_config
       instance_types = v.instance_types
     }
@@ -94,4 +94,8 @@ output "kms_key_arn" {
 output "kms_key_id" {
   description = "The globally unique identifier for the key used for EKS secret encryption"
   value       = aws_kms_key.eks.key_id
-} 
+}
+output "node_autoscaling_groups" {
+  description = "Managed node ASGs for automatic gateway target registration"
+  value       = { for name, group in aws_eks_node_group.main : name => group.resources[0].autoscaling_groups[0].name }
+}

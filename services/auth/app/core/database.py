@@ -3,8 +3,8 @@ Database configuration and connection management for InvoiceFlow Auth Service
 Handles database connections with retry logic and health checks
 """
 import time
-import asyncio
-from typing import Generator, Optional
+from contextlib import contextmanager
+from typing import Generator, Any
 from sqlalchemy import create_engine, text
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import sessionmaker, Session
@@ -41,7 +41,11 @@ class DatabaseManager:
                     max_overflow=10,
                     pool_pre_ping=True,  # Validate connections before use
                     pool_recycle=3600,   # Recycle connections every hour
-                    connect_args={"connect_timeout": 10}
+                    connect_args=(
+                        {"check_same_thread": False}
+                        if str(settings.database_url).startswith("sqlite:")
+                        else {"connect_timeout": 10}
+                    )
                 )
                 
                 # Test connection
@@ -74,6 +78,7 @@ class DatabaseManager:
         
         return False
     
+    @contextmanager
     def get_session(self) -> Generator[Session, None, None]:
         """Get database session with automatic cleanup."""
         if not self._is_connected or not self.SessionLocal:
@@ -92,7 +97,7 @@ class DatabaseManager:
     
     async def health_check(self) -> dict:
         """Perform database health check."""
-        health_status = {
+        health_status: dict[str, Any] = {
             "status": "unhealthy",
             "database": "disconnected",
             "details": {},
@@ -149,7 +154,8 @@ db_manager = DatabaseManager()
 
 def get_db() -> Generator[Session, None, None]:
     """Dependency for getting database session."""
-    yield from db_manager.get_session()
+    with db_manager.get_session() as session:
+        yield session
 
 
 def init_db() -> bool:

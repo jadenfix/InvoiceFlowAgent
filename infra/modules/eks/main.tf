@@ -45,8 +45,8 @@ resource "aws_eks_cluster" "main" {
   vpc_config {
     subnet_ids              = var.subnet_ids
     endpoint_private_access = true
-    endpoint_public_access  = true
-    public_access_cidrs     = ["0.0.0.0/0"]
+    endpoint_public_access  = false
+    public_access_cidrs     = []
   }
 
   # Enable logging
@@ -68,7 +68,10 @@ resource "aws_eks_cluster" "main" {
 }
 
 # KMS Key for EKS encryption
+data "aws_caller_identity" "current" {}
+
 resource "aws_kms_key" "eks" {
+  policy                  = jsonencode({ Version = "2012-10-17", Statement = [{ Sid = "EnableAccountIAM", Effect = "Allow", Principal = { AWS = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:root" }, Action = "kms:*", Resource = "*" }] })
   description             = "EKS Secret Encryption Key"
   deletion_window_in_days = 7
   enable_key_rotation     = true
@@ -139,6 +142,7 @@ resource "aws_eks_node_group" "main" {
   node_role_arn   = aws_iam_role.node_group.arn
   subnet_ids      = var.subnet_ids
 
+  ami_type       = "AL2023_x86_64_STANDARD"
   capacity_type  = each.value.capacity_type
   instance_types = each.value.instance_types
 
@@ -182,20 +186,18 @@ resource "aws_eks_node_group" "main" {
 
 # Launch template for node groups
 resource "aws_launch_template" "node_group" {
+  metadata_options {
+    http_endpoint               = "enabled"
+    http_tokens                 = "required"
+    http_put_response_hop_limit = 1
+  }
   for_each = var.node_groups
 
-  name_prefix   = "${var.cluster_name}-${each.key}-"
-  image_id      = data.aws_ami.eks_worker.id
-  instance_type = each.value.instance_types[0]
+  name_prefix = "${var.cluster_name}-${each.key}-"
 
   vpc_security_group_ids = [aws_security_group.node_group.id]
 
-  user_data = base64encode(templatefile("${path.module}/templates/userdata.sh", {
-    cluster_name        = var.cluster_name
-    cluster_endpoint    = aws_eks_cluster.main.endpoint
-    cluster_ca          = aws_eks_cluster.main.certificate_authority[0].data
-    bootstrap_arguments = ""
-  }))
+  # EKS supplies AL2023 nodeadm bootstrap for its managed AMI; no obsolete AL2 script.
 
   tag_specifications {
     resource_type = "instance"
@@ -210,15 +212,27 @@ resource "aws_launch_template" "node_group" {
 }
 
 # Security group for node groups
+data "aws_vpc" "main" { id = var.vpc_id }
+
 resource "aws_security_group" "node_group" {
+  description = "Private EKS node and AWS endpoint traffic"
   name_prefix = "${var.cluster_name}-node-group-"
   vpc_id      = var.vpc_id
 
   egress {
+    description = "Private cluster and interface endpoints"
     from_port   = 0
     to_port     = 0
     protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
+    cidr_blocks = [data.aws_vpc.main.cidr_block]
+  }
+
+  egress {
+    description     = "S3 artifact access through the VPC gateway endpoint"
+    from_port       = 443
+    to_port         = 443
+    protocol        = "tcp"
+    prefix_list_ids = [var.s3_prefix_list_id]
   }
 
   tags = merge(var.tags, {
@@ -247,16 +261,6 @@ resource "aws_security_group_rule" "node_group_ingress_cluster" {
   type                     = "ingress"
 }
 
-# Data source for EKS optimized AMI
-data "aws_ami" "eks_worker" {
-  filter {
-    name   = "name"
-    values = ["amazon-eks-node-${var.cluster_version}-v*"]
-  }
-
-  most_recent = true
-  owners      = ["602401143452"] # Amazon EKS AMI Account ID
-}
 
 # OIDC Identity Provider
 data "tls_certificate" "cluster" {

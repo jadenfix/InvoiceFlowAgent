@@ -69,7 +69,7 @@ def configure_logging():
     )
 
 
-def get_logger(name: str = None):
+def get_logger(name: str | None = None):
     """Get a structured logger instance."""
     return structlog.get_logger(name)
 
@@ -111,7 +111,7 @@ def log_request_end(request: Request, response_status: int, duration_ms: float):
     )
 
 
-def log_auth_event(event_type: str, user_email: str = None, success: bool = True, **kwargs):
+def log_auth_event(event_type: str, user_email: str | None = None, success: bool = True, **kwargs):
     """Log authentication-related events."""
     logger = get_logger("auth.security")
     
