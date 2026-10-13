@@ -38,3 +38,19 @@ describe("invoice pagination", () => {
     expect(onPageChange).toHaveBeenCalledWith(1);
   });
 });
+it("does not navigate an empty queue even when server flags are inconsistent", () => {
+  const onPageChange = vi.fn();
+  render(
+    <Pagination
+      page={1}
+      page_size={20}
+      total={0}
+      has_next={false}
+      has_prev={false}
+      onPageChange={onPageChange}
+    />,
+  );
+  expect(screen.getByText("No invoices")).toBeInTheDocument();
+  for (const b of screen.getAllByRole("button")) expect(b).toBeDisabled();
+  expect(onPageChange).not.toHaveBeenCalled();
+});

@@ -268,3 +268,105 @@ describe("QueueTable", () => {
     expect(vendorHeader).toHaveAttribute("tabIndex", "0");
   });
 });
+describe("keyboard and date-filter boundaries", () => {
+  it("applies both date endpoints as calendar dates", () => {
+    const onFiltersChange = vi.fn();
+    render(<QueueTable {...defaultProps} onFiltersChange={onFiltersChange} />);
+    fireEvent.click(screen.getByRole("button", { name: "Filters" }));
+    fireEvent.change(screen.getByLabelText("From Date"), {
+      target: { value: "2025-01-01" },
+    });
+    fireEvent.change(screen.getByLabelText("To Date"), {
+      target: { value: "2025-01-31" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Apply Filters" }));
+    expect(onFiltersChange).toHaveBeenCalledWith({
+      date_from: "2025-01-01",
+      date_to: "2025-01-31",
+    });
+  });
+  it.each(["Vendor", "Amount", "Invoice Date", "Created"])(
+    "sorts %s with Enter and Space without reacting to unrelated keys",
+    (name) => {
+      const onFiltersChange = vi.fn();
+      const field = (
+        {
+          Vendor: "vendor_name",
+          Amount: "total_amount",
+          "Invoice Date": "invoice_date",
+          Created: "created_at",
+        } as Record<string, string>
+      )[name];
+      const { rerender } = render(
+        <QueueTable {...defaultProps} onFiltersChange={onFiltersChange} />,
+      );
+      const header = screen.getByRole("columnheader", { name });
+      fireEvent.keyDown(header, { key: "Tab" });
+      expect(onFiltersChange).not.toHaveBeenCalled();
+      fireEvent.keyDown(header, { key: "Enter" });
+      expect(onFiltersChange).toHaveBeenLastCalledWith({
+        sort_by: field,
+        sort_order: "desc",
+      });
+      rerender(
+        <QueueTable
+          {...defaultProps}
+          filters={{ sort_by: field, sort_order: "desc" }}
+          onFiltersChange={onFiltersChange}
+        />,
+      );
+      expect(header).toHaveAttribute("aria-sort", "descending");
+      fireEvent.keyDown(header, { key: " " });
+      expect(onFiltersChange).toHaveBeenLastCalledWith({
+        sort_by: field,
+        sort_order: "asc",
+      });
+      rerender(
+        <QueueTable
+          {...defaultProps}
+          filters={{ sort_by: field, sort_order: "asc" }}
+          onFiltersChange={onFiltersChange}
+        />,
+      );
+      expect(header).toHaveAttribute("aria-sort", "ascending");
+    },
+  );
+  it("falls back for malformed dates rather than crashing the queue", () => {
+    render(
+      <QueueTable
+        {...defaultProps}
+        items={[
+          {
+            ...mockInvoices[0],
+            created_at: "not-a-date",
+            invoice_date: "not-a-date",
+          },
+        ]}
+      />,
+    );
+    const cells = within(
+      screen.getByRole("row", { name: /Acme/ }),
+    ).getAllByRole("cell");
+    expect(cells[3]).toHaveTextContent("-");
+    expect(cells[5]).toHaveTextContent("-");
+  });
+});
+it.each(["Invoice #", "Amount", "Invoice Date", "Created"])(
+  "sorts %s through the pointer control",
+  (name) => {
+    const onFiltersChange = vi.fn();
+    render(<QueueTable {...defaultProps} onFiltersChange={onFiltersChange} />);
+    fireEvent.click(screen.getByRole("columnheader", { name }));
+    expect(onFiltersChange).toHaveBeenCalledWith({
+      sort_by: (
+        {
+          "Invoice #": "invoice_number",
+          Amount: "total_amount",
+          "Invoice Date": "invoice_date",
+          Created: "created_at",
+        } as Record<string, string>
+      )[name],
+      sort_order: "desc",
+    });
+  },
+);

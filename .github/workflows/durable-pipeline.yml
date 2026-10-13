@@ -20,7 +20,7 @@ jobs:
           node-version: '22'
       - run: npm ci
         working-directory: frontend
-      - run: npm run lint && npm run build && npx vitest run --threads false
+      - run: npm run lint && npm run format:check && npm run build && npx vitest run --threads false && npm run test:exception:coverage -- --threads false
         working-directory: frontend
         env:
           VITE_AUTH_SERVICE_URL: http://127.0.0.1:8003
