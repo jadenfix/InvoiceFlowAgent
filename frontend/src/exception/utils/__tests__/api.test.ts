@@ -7,12 +7,10 @@ afterEach(() => {
 describe("authenticated review contracts", () => {
   it("sends a real session token with review writes", async () => {
     localStorage.setItem("auth_token", "test-session");
-    const fetch = vi
-      .spyOn(globalThis, "fetch")
-      .mockResolvedValue({
-        ok: true,
-        json: async () => ({ invoice_id: "invoice" }),
-      } as Response);
+    const fetch = vi.spyOn(globalThis, "fetch").mockResolvedValue({
+      ok: true,
+      json: async () => ({ invoice_id: "invoice" }),
+    } as Response);
     await exceptionApi.approveInvoice("invoice", {
       reviewed_by: "test@example.com",
       review_notes: "Checked source",
