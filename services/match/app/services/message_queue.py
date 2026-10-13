@@ -63,13 +63,19 @@ class MessageQueueService:
     async def health_check(self) -> bool:
         """Check message queue health."""
         try:
-            if not self.connection or self.connection.is_closed or self.channel is None:
+            if (
+                not self.connection
+                or self.connection.is_closed
+                or self.channel is None
+                or self.channel.is_closed
+            ):
                 self._is_healthy = False
                 return False
 
-            # Try to declare a temporary queue to test connection
-            temp_queue = await self.channel.declare_queue(exclusive=True, auto_delete=True)
-            await temp_queue.delete()
+            # A passive declaration proves the broker can serve both required queues.
+            # Readiness must not delete a queue or close a live channel on a precondition.
+            for name in ("invoice_extracted", "invoice_matched"):
+                await self.channel.declare_queue(name, passive=True, timeout=5)
 
             self._is_healthy = True
             return True
