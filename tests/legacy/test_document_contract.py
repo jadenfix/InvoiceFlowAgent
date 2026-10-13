@@ -1,12 +1,16 @@
 """Real PDF bytes through the shared parser; no OCR/AI or provider mocks."""
 
 import io
+import sys
+from pathlib import Path
 from decimal import Decimal
 
 import pytest
 from pypdf import PdfReader, PdfWriter
 
-from scripts.check_pipeline_http import make_pdf
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+
+from scripts.check_pipeline_http import make_pdf  # noqa: E402
 from services.pipeline.extraction import extract_fields, match_amount
 
 
