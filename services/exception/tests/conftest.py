@@ -8,6 +8,11 @@ from typing import AsyncGenerator, Generator
 import pytest
 import pytest_asyncio
 from httpx import AsyncClient
+from contextlib import asynccontextmanager
+from urllib.parse import quote
+from sqlalchemy import delete
+from app.models import database
+from app.services import message_service as message_module
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
 from testcontainers.postgres import PostgresContainer
 from testcontainers.rabbitmq import RabbitMqContainer
@@ -49,20 +54,23 @@ def test_database_url(postgres_container):
 @pytest.fixture(scope="session")
 def test_rabbitmq_url(rabbitmq_container):
     """Get test RabbitMQ URL."""
-    return rabbitmq_container.get_connection_url()
+    params = rabbitmq_container.get_connection_params()
+    user = quote(params.credentials.username, safe="")
+    password = quote(params.credentials.password, safe="")
+    return f"amqp://{user}:{password}@{params.host}:{params.port}/"
 
 
 @pytest_asyncio.fixture(scope="session")
 async def test_engine(test_database_url):
     """Create test database engine."""
     engine = create_async_engine(test_database_url, echo=False)
-    
+
     # Create tables
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
-    
+
     yield engine
-    
+
     # Cleanup
     await engine.dispose()
 
@@ -75,10 +83,14 @@ async def test_session(test_engine) -> AsyncGenerator[AsyncSession, None]:
         class_=AsyncSession,
         expire_on_commit=False,
     )
-    
+
     async with async_session_factory() as session:
-        yield session
-        await session.rollback()
+        try:
+            yield session
+        finally:
+            await session.rollback()
+            await session.execute(delete(Invoice))
+            await session.commit()
 
 
 @pytest_asyncio.fixture
@@ -87,30 +99,30 @@ async def test_message_service(test_rabbitmq_url):
     # Override settings for test
     original_url = settings.rabbitmq_url
     settings.rabbitmq_url = test_rabbitmq_url
-    
+
     message_service = MessageService()
     await message_service.connect()
-    
+    await message_service.queue.purge()
+
     yield message_service
-    
+
     await message_service.disconnect()
     settings.rabbitmq_url = original_url
 
 
 @pytest_asyncio.fixture
-async def test_client(test_session, test_message_service):
-    """Create test HTTP client."""
-    # Override database dependency
-    async def override_get_db():
+async def test_client(test_session, test_message_service, monkeypatch):
+    """Run production HTTP routes against actual isolated PostgreSQL/RabbitMQ fixtures."""
+
+    @asynccontextmanager
+    async def test_sessions():
         yield test_session
-    
-    app.dependency_overrides[get_db_session] = override_get_db
-    
+
+    monkeypatch.setattr(settings, "environment", "production")
+    monkeypatch.setattr(database, "get_db_session", test_sessions)
+    monkeypatch.setattr(message_module, "message_service", test_message_service)
     async with AsyncClient(app=app, base_url="http://test") as client:
         yield client
-    
-    # Clear overrides
-    app.dependency_overrides.clear()
 
 
 @pytest.fixture
@@ -149,13 +161,15 @@ async def sample_invoice(test_session: AsyncSession, sample_invoice_data):
 async def reviewed_invoice(test_session: AsyncSession, sample_invoice_data):
     """Create a reviewed invoice in the database."""
     invoice_data = sample_invoice_data.copy()
-    invoice_data.update({
-        "matched_status": "AUTO_APPROVED",
-        "reviewed_by": "test_reviewer",
-        "reviewed_at": datetime.utcnow(),
-        "review_notes": "Approved during testing",
-    })
-    
+    invoice_data.update(
+        {
+            "matched_status": "AUTO_APPROVED",
+            "reviewed_by": "test_reviewer",
+            "reviewed_at": datetime.utcnow(),
+            "review_notes": "Approved during testing",
+        }
+    )
+
     invoice = Invoice(**invoice_data)
     test_session.add(invoice)
     await test_session.commit()
@@ -167,26 +181,28 @@ async def reviewed_invoice(test_session: AsyncSession, sample_invoice_data):
 async def multiple_invoices(test_session: AsyncSession, sample_invoice_data):
     """Create multiple invoices for pagination testing."""
     invoices = []
-    
+
     for i in range(25):  # Create 25 invoices for pagination testing
         invoice_data = sample_invoice_data.copy()
-        invoice_data.update({
-            "vendor_name": f"Vendor {i+1}",
-            "invoice_number": f"INV-2024-{i+1:03d}",
-            "total_amount": Decimal(f"{1000 + i * 100}.00"),
-            "created_at": datetime.utcnow() - timedelta(hours=i),
-        })
-        
+        invoice_data.update(
+            {
+                "vendor_name": f"Vendor {i+1}",
+                "invoice_number": f"INV-2024-{i+1:03d}",
+                "total_amount": Decimal(f"{1000 + i * 100}.00"),
+                "created_at": datetime.utcnow() - timedelta(hours=i),
+            }
+        )
+
         invoice = Invoice(**invoice_data)
         test_session.add(invoice)
         invoices.append(invoice)
-    
+
     await test_session.commit()
-    
+
     # Refresh all invoices
     for invoice in invoices:
         await test_session.refresh(invoice)
-    
+
     return invoices
 
 
@@ -205,4 +221,4 @@ def reject_request_data():
     return {
         "reviewed_by": "test_reviewer",
         "review_notes": "Invoice rejected - amount discrepancy with PO",
-    } 
+    }
