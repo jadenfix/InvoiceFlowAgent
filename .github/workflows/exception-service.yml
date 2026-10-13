@@ -90,6 +90,10 @@ jobs:
       working-directory: services/exception
       run: mypy app/ --ignore-missing-imports
 
+    - name: Run context and settings regressions
+      working-directory: services/exception
+      run: python -m pytest ../../tests/legacy -q
+
     - name: Run unit tests
       working-directory: services/exception
       env:
@@ -263,7 +267,7 @@ jobs:
         npx playwright test tests/e2e/exception/ --reporter=html
 
     - name: Upload E2E test results
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       if: failure()
       with:
         name: e2e-test-results
@@ -271,7 +275,7 @@ jobs:
         retention-days: 7
 
     - name: Upload E2E test report
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       if: always()
       with:
         name: e2e-test-report
@@ -282,6 +286,10 @@ jobs:
   security-scan:
     name: Security Scan
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+      actions: read
 
     steps:
     - name: Checkout code
@@ -296,7 +304,7 @@ jobs:
         output: 'trivy-results.sarif'
 
     - name: Upload Trivy scan results to GitHub Security tab
-      uses: github/codeql-action/upload-sarif@v2
+      uses: github/codeql-action/upload-sarif@v3
       if: always()
       with:
         sarif_file: 'trivy-results.sarif'
@@ -308,7 +316,7 @@ jobs:
         bandit -r app/ -f json -o bandit-report.json || true
 
     - name: Upload Bandit results
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       if: always()
       with:
         name: bandit-security-report
