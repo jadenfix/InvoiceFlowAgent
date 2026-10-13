@@ -226,6 +226,15 @@ jobs:
           cd services/auth
           python -m pytest tests/ -v --cov=app --cov-report=xml --cov-report=term-missing
 
+      - name: Real PostgreSQL auth HTTP roundtrip
+        env:
+          DATABASE_URL: postgresql://testuser:testpassword@localhost:5432/testdb
+          JWT_SECRET: test-secret-key-that-is-long-enough-for-testing
+          ENVIRONMENT: testing
+        run: |
+          cd services/auth
+          python scripts/check_native_auth.py
+
       - name: Upload auth service coverage
         uses: codecov/codecov-action@v3
         with:
