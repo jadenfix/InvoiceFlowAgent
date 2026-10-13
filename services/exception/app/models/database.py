@@ -1,10 +1,11 @@
 """Database models and session management."""
 
 from datetime import datetime
+from decimal import Decimal
 from typing import AsyncGenerator
-from sqlalchemy import Column, String, DateTime, Numeric, Text
+from sqlalchemy import String, DateTime, Numeric, Text
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
-from sqlalchemy.orm import DeclarativeBase
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 from contextlib import asynccontextmanager
 from sqlalchemy.dialects.postgresql import UUID
 import uuid
@@ -38,41 +39,43 @@ class Invoice(Base):
     __tablename__ = "invoices"
 
     # Primary key
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
 
     # Core invoice data
-    vendor_name = Column(String(255))
-    invoice_number = Column(String(100))
-    total_amount = Column(Numeric(10, 2))
-    invoice_date = Column(DateTime)
-    due_date = Column(DateTime)
+    vendor_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    invoice_number: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    total_amount: Mapped[Decimal | None] = mapped_column(Numeric(10, 2), nullable=True)
+    invoice_date: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    due_date: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
     # File information
-    file_path = Column(String(500))
-    file_type = Column(String(50))
+    file_path: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    file_type: Mapped[str | None] = mapped_column(String(50), nullable=True)
 
     # Processing status
-    status = Column(String(50), default="PENDING")
-    matched_status = Column(String(50), default="PENDING")
+    status: Mapped[str] = mapped_column(String(50), default="PENDING", nullable=True)
+    matched_status: Mapped[str] = mapped_column(String(50), default="PENDING", nullable=True)
 
     # Extraction data (JSON fields would be better, but keeping simple)
-    extracted_vendor = Column(String(255))
-    extracted_amount = Column(Numeric(10, 2))
-    extracted_invoice_number = Column(String(100))
-    extracted_date = Column(DateTime)
+    extracted_vendor: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    extracted_amount: Mapped[Decimal | None] = mapped_column(Numeric(10, 2), nullable=True)
+    extracted_invoice_number: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    extracted_date: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
     # Matching data
-    confidence_score = Column(Numeric(5, 4))
-    match_details = Column(Text)
+    confidence_score: Mapped[Decimal | None] = mapped_column(Numeric(5, 4), nullable=True)
+    match_details: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     # Review fields (NEW)
-    reviewed_by = Column(String(255))
-    reviewed_at = Column(DateTime)
-    review_notes = Column(Text)
+    reviewed_by: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    reviewed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    review_notes: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     # Timestamps
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=True)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=True
+    )
 
 
 @asynccontextmanager
