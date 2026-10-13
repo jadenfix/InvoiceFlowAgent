@@ -24,22 +24,22 @@ export interface InvoiceDetail {
   matched_status: string;
   file_path?: string;
   file_type?: string;
-  
+
   // Extraction data
   extracted_vendor?: string;
   extracted_amount?: number;
   extracted_invoice_number?: string;
   extracted_date?: string;
-  
+
   // Matching data
   confidence_score?: number;
   match_details?: string;
-  
+
   // Review data
   reviewed_by?: string;
   reviewed_at?: string;
   review_notes?: string;
-  
+
   // Timestamps
   created_at: string;
   updated_at: string;
@@ -93,7 +93,7 @@ export interface QueueFilters {
   date_from?: string;
   date_to?: string;
   sort_by?: string;
-  sort_order?: 'asc' | 'desc';
+  sort_order?: "asc" | "desc";
 }
 
 export interface PaginationProps {
@@ -113,4 +113,4 @@ export interface LoadingState {
 export interface ReviewFormData {
   reviewed_by: string;
   review_notes: string;
-} 
+}

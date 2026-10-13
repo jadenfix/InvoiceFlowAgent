@@ -2,15 +2,15 @@
  * Queue Table Component for displaying invoices needing review
  */
 
-import { useState } from 'react';
-import { format } from 'date-fns';
-import { 
-  ChevronUpIcon, 
-  ChevronDownIcon, 
+import { useState } from "react";
+import { format } from "date-fns";
+import {
+  ChevronUpIcon,
+  ChevronDownIcon,
   EyeIcon,
   FunnelIcon,
-} from '@heroicons/react/24/outline';
-import { InvoiceQueueItem, QueueFilters } from '../types';
+} from "@heroicons/react/24/outline";
+import { InvoiceQueueItem, QueueFilters } from "../types";
 
 interface QueueTableProps {
   items: InvoiceQueueItem[];
@@ -20,22 +20,22 @@ interface QueueTableProps {
   onViewInvoice: (invoiceId: string) => void;
 }
 
-export function QueueTable({ 
-  items, 
-  isLoading, 
-  filters, 
-  onFiltersChange, 
-  onViewInvoice 
+export function QueueTable({
+  items,
+  isLoading,
+  filters,
+  onFiltersChange,
+  onViewInvoice,
 }: QueueTableProps) {
   const [showFilters, setShowFilters] = useState(false);
   const [localFilters, setLocalFilters] = useState<QueueFilters>(filters);
 
   const handleSort = (field: string) => {
-    const newOrder = 
-      filters.sort_by === field && filters.sort_order === 'desc' 
-        ? 'asc' 
-        : 'desc';
-    
+    const newOrder =
+      filters.sort_by === field && filters.sort_order === "desc"
+        ? "asc"
+        : "desc";
+
     onFiltersChange({
       ...filters,
       sort_by: field,
@@ -57,30 +57,32 @@ export function QueueTable({
 
   const getSortIcon = (field: string) => {
     if (filters.sort_by !== field) return null;
-    return filters.sort_order === 'desc' ? 
-      <ChevronDownIcon className="w-4 h-4" /> : 
-      <ChevronUpIcon className="w-4 h-4" />;
+    return filters.sort_order === "desc" ? (
+      <ChevronDownIcon className="w-4 h-4" />
+    ) : (
+      <ChevronUpIcon className="w-4 h-4" />
+    );
   };
 
   const formatAmount = (amount?: number) => {
-    if (amount == null) return '-';
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
+    if (amount == null) return "-";
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: "USD",
     }).format(amount);
   };
 
   const formatDate = (dateString?: string) => {
-    if (!dateString) return '-';
+    if (!dateString) return "-";
     try {
-      return format(new Date(dateString), 'MMM dd, yyyy');
+      return format(new Date(dateString), "MMM dd, yyyy");
     } catch {
-      return '-';
+      return "-";
     }
   };
 
   const formatConfidence = (score?: number) => {
-    if (score == null) return '-';
+    if (score == null) return "-";
     return `${(score * 100).toFixed(1)}%`;
   };
 
@@ -89,9 +91,7 @@ export function QueueTable({
       {/* Header with filters */}
       <div className="px-6 py-4 border-b border-gray-200">
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-medium text-gray-900">
-            Review Queue
-          </h2>
+          <h2 className="text-lg font-medium text-gray-900">Review Queue</h2>
           <button
             onClick={() => setShowFilters(!showFilters)}
             className="inline-flex items-center px-3 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
@@ -106,48 +106,63 @@ export function QueueTable({
           <div className="mt-4 p-4 bg-gray-50 rounded-md">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
-                <label htmlFor="vendor-filter" className="block text-sm font-medium text-gray-700 mb-1">
+                <label
+                  htmlFor="vendor-filter"
+                  className="block text-sm font-medium text-gray-700 mb-1"
+                >
                   Vendor
                 </label>
                 <input
                   type="text"
                   id="vendor-filter"
-                  value={localFilters.vendor_filter || ''}
-                  onChange={(e) => setLocalFilters({
-                    ...localFilters,
-                    vendor_filter: e.target.value || undefined
-                  })}
+                  value={localFilters.vendor_filter || ""}
+                  onChange={(e) =>
+                    setLocalFilters({
+                      ...localFilters,
+                      vendor_filter: e.target.value || undefined,
+                    })
+                  }
                   placeholder="Filter by vendor name"
                   className="block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                 />
               </div>
               <div>
-                <label htmlFor="date-from" className="block text-sm font-medium text-gray-700 mb-1">
+                <label
+                  htmlFor="date-from"
+                  className="block text-sm font-medium text-gray-700 mb-1"
+                >
                   From Date
                 </label>
                 <input
                   type="date"
                   id="date-from"
-                  value={localFilters.date_from || ''}
-                  onChange={(e) => setLocalFilters({
-                    ...localFilters,
-                    date_from: e.target.value || undefined
-                  })}
+                  value={localFilters.date_from || ""}
+                  onChange={(e) =>
+                    setLocalFilters({
+                      ...localFilters,
+                      date_from: e.target.value || undefined,
+                    })
+                  }
                   className="block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                 />
               </div>
               <div>
-                <label htmlFor="date-to" className="block text-sm font-medium text-gray-700 mb-1">
+                <label
+                  htmlFor="date-to"
+                  className="block text-sm font-medium text-gray-700 mb-1"
+                >
                   To Date
                 </label>
                 <input
                   type="date"
                   id="date-to"
-                  value={localFilters.date_to || ''}
-                  onChange={(e) => setLocalFilters({
-                    ...localFilters,
-                    date_to: e.target.value || undefined
-                  })}
+                  value={localFilters.date_to || ""}
+                  onChange={(e) =>
+                    setLocalFilters({
+                      ...localFilters,
+                      date_to: e.target.value || undefined,
+                    })
+                  }
                   className="block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                 />
               </div>
@@ -175,80 +190,122 @@ export function QueueTable({
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">
             <tr>
-              <th 
-                scope="col" 
+              <th
+                scope="col"
                 className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                onClick={() => handleSort('vendor_name')}
+                onClick={() => handleSort("vendor_name")}
                 tabIndex={0}
-                aria-sort={filters.sort_by === 'vendor_name' ? (filters.sort_order === 'desc' ? 'descending' : 'ascending') : 'none'}
+                aria-sort={
+                  filters.sort_by === "vendor_name"
+                    ? filters.sort_order === "desc"
+                      ? "descending"
+                      : "ascending"
+                    : "none"
+                }
                 onKeyDown={(event) => {
-                  if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); handleSort('vendor_name'); }
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    handleSort("vendor_name");
+                  }
                 }}
               >
                 <div className="flex items-center space-x-1">
                   <span>Vendor</span>
-                  {getSortIcon('vendor_name')}
+                  {getSortIcon("vendor_name")}
                 </div>
               </th>
-              <th 
-                scope="col" 
+              <th
+                scope="col"
                 className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                onClick={() => handleSort('invoice_number')}
+                onClick={() => handleSort("invoice_number")}
               >
                 <div className="flex items-center space-x-1">
                   <span>Invoice #</span>
-                  {getSortIcon('invoice_number')}
+                  {getSortIcon("invoice_number")}
                 </div>
               </th>
-              <th 
-                scope="col" 
+              <th
+                scope="col"
                 className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                onClick={() => handleSort('total_amount')}
+                onClick={() => handleSort("total_amount")}
                 tabIndex={0}
-                aria-sort={filters.sort_by === 'total_amount' ? (filters.sort_order === 'desc' ? 'descending' : 'ascending') : 'none'}
+                aria-sort={
+                  filters.sort_by === "total_amount"
+                    ? filters.sort_order === "desc"
+                      ? "descending"
+                      : "ascending"
+                    : "none"
+                }
                 onKeyDown={(event) => {
-                  if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); handleSort('total_amount'); }
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    handleSort("total_amount");
+                  }
                 }}
               >
                 <div className="flex items-center space-x-1">
                   <span>Amount</span>
-                  {getSortIcon('total_amount')}
+                  {getSortIcon("total_amount")}
                 </div>
               </th>
-              <th 
-                scope="col" 
+              <th
+                scope="col"
                 className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                onClick={() => handleSort('invoice_date')}
+                onClick={() => handleSort("invoice_date")}
                 tabIndex={0}
-                aria-sort={filters.sort_by === 'invoice_date' ? (filters.sort_order === 'desc' ? 'descending' : 'ascending') : 'none'}
+                aria-sort={
+                  filters.sort_by === "invoice_date"
+                    ? filters.sort_order === "desc"
+                      ? "descending"
+                      : "ascending"
+                    : "none"
+                }
                 onKeyDown={(event) => {
-                  if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); handleSort('invoice_date'); }
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    handleSort("invoice_date");
+                  }
                 }}
               >
                 <div className="flex items-center space-x-1">
                   <span>Invoice Date</span>
-                  {getSortIcon('invoice_date')}
+                  {getSortIcon("invoice_date")}
                 </div>
               </th>
-              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th
+                scope="col"
+                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+              >
                 Confidence
               </th>
-              <th 
-                scope="col" 
+              <th
+                scope="col"
                 className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                onClick={() => handleSort('created_at')}
+                onClick={() => handleSort("created_at")}
                 tabIndex={0}
-                aria-sort={filters.sort_by === 'created_at' ? (filters.sort_order === 'desc' ? 'descending' : 'ascending') : 'none'}
+                aria-sort={
+                  filters.sort_by === "created_at"
+                    ? filters.sort_order === "desc"
+                      ? "descending"
+                      : "ascending"
+                    : "none"
+                }
                 onKeyDown={(event) => {
-                  if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); handleSort('created_at'); }
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    handleSort("created_at");
+                  }
                 }}
               >
                 <div className="flex items-center space-x-1">
                   <span>Created</span>
-                  {getSortIcon('created_at')}
+                  {getSortIcon("created_at")}
                 </div>
               </th>
-              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th
+                scope="col"
+                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+              >
                 Actions
               </th>
             </tr>
@@ -256,16 +313,26 @@ export function QueueTable({
           <tbody className="bg-white divide-y divide-gray-200">
             {isLoading ? (
               <tr>
-                <td colSpan={7} className="px-6 py-4 text-center text-sm text-gray-500">
+                <td
+                  colSpan={7}
+                  className="px-6 py-4 text-center text-sm text-gray-500"
+                >
                   <div className="flex items-center justify-center space-x-2">
-                    <div role="progressbar" aria-label="Loading invoices" className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                    <div
+                      role="progressbar"
+                      aria-label="Loading invoices"
+                      className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"
+                    ></div>
                     <span>Loading...</span>
                   </div>
                 </td>
               </tr>
             ) : items.length === 0 ? (
               <tr>
-                <td colSpan={7} className="px-6 py-4 text-center text-sm text-gray-500">
+                <td
+                  colSpan={7}
+                  className="px-6 py-4 text-center text-sm text-gray-500"
+                >
                   No invoices need review
                 </td>
               </tr>
@@ -273,10 +340,10 @@ export function QueueTable({
               items.map((item) => (
                 <tr key={item.id} className="hover:bg-gray-50">
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                    {item.vendor_name || '-'}
+                    {item.vendor_name || "-"}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {item.invoice_number || '-'}
+                    {item.invoice_number || "-"}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                     {formatAmount(item.total_amount)}
@@ -285,13 +352,15 @@ export function QueueTable({
                     {formatDate(item.invoice_date)}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                      (item.confidence_score || 0) > 0.8 
-                        ? 'bg-green-100 text-green-800'
-                        : (item.confidence_score || 0) > 0.6
-                        ? 'bg-yellow-100 text-yellow-800'
-                        : 'bg-red-100 text-red-800'
-                    }`}>
+                    <span
+                      className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                        (item.confidence_score || 0) > 0.8
+                          ? "bg-green-100 text-green-800"
+                          : (item.confidence_score || 0) > 0.6
+                            ? "bg-yellow-100 text-yellow-800"
+                            : "bg-red-100 text-red-800"
+                      }`}
+                    >
                       {formatConfidence(item.confidence_score)}
                     </span>
                   </td>
@@ -315,4 +384,4 @@ export function QueueTable({
       </div>
     </div>
   );
-} 
+}

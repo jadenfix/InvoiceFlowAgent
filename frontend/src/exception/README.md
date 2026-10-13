@@ -56,6 +56,7 @@ src/exception/
 ### Installation
 
 1. **Install Dependencies** (if not already installed):
+
    ```bash
    npm install @tanstack/react-query react-router-dom
    npm install @heroicons/react date-fns
@@ -71,9 +72,10 @@ src/exception/
 ### Integration
 
 1. **Add to Main App Router**:
+
    ```typescript
    import { ExceptionApp } from './exception';
-   
+
    function App() {
      return (
        <Router>
@@ -87,9 +89,10 @@ src/exception/
    ```
 
 2. **Or Use Individual Components**:
+
    ```typescript
-   import { QueuePage, DetailPage } from './exception';
-   
+   import { QueuePage, DetailPage } from "./exception";
+
    // Use in your existing routing structure
    ```
 
@@ -100,6 +103,7 @@ src/exception/
 The queue page displays all invoices requiring review with advanced filtering and sorting capabilities.
 
 **Features**:
+
 - Pagination with configurable page sizes
 - Vendor name filtering
 - Date range filtering
@@ -114,6 +118,7 @@ The queue page displays all invoices requiring review with advanced filtering an
 The detail page shows comprehensive invoice information and provides review controls.
 
 **Features**:
+
 - Complete invoice details (original and extracted data)
 - Matching information and confidence scores
 - File information and download links
@@ -135,7 +140,7 @@ const queryClient = new QueryClient({
     queries: {
       retry: 3,
       staleTime: 30000, // 30 seconds
-      gcTime: 300000,   // 5 minutes
+      gcTime: 300000, // 5 minutes
     },
   },
 });
@@ -149,10 +154,10 @@ Fetches paginated review queue with filtering.
 
 ```typescript
 const { data, isLoading, error, refetch } = useReviewQueue(1, 20, {
-  vendor_filter: 'Acme',
-  date_from: '2024-01-01',
-  sort_by: 'created_at',
-  sort_order: 'desc'
+  vendor_filter: "Acme",
+  date_from: "2024-01-01",
+  sort_by: "created_at",
+  sort_order: "desc",
 });
 ```
 
@@ -173,11 +178,11 @@ const approveInvoice = useApproveInvoice();
 
 const handleApprove = async () => {
   await approveInvoice.mutateAsync({
-    invoiceId: 'uuid',
+    invoiceId: "uuid",
     request: {
-      reviewed_by: 'john.doe@company.com',
-      review_notes: 'Approved - matches PO'
-    }
+      reviewed_by: "john.doe@company.com",
+      review_notes: "Approved - matches PO",
+    },
   });
 };
 ```
@@ -191,11 +196,11 @@ const rejectInvoice = useRejectInvoice();
 
 const handleReject = async () => {
   await rejectInvoice.mutateAsync({
-    invoiceId: 'uuid',
+    invoiceId: "uuid",
     request: {
-      reviewed_by: 'jane.smith@company.com',
-      review_notes: 'Rejected - amount mismatch'
-    }
+      reviewed_by: "jane.smith@company.com",
+      review_notes: "Rejected - amount mismatch",
+    },
   });
 };
 ```
@@ -210,7 +215,7 @@ import { QueueTable } from './exception';
 function MyQueuePage() {
   const [filters, setFilters] = useState({});
   const { data, isLoading } = useReviewQueue(1, 20, filters);
-  
+
   return (
     <QueueTable
       items={data?.items || []}
@@ -231,7 +236,7 @@ import { ReviewForm } from './exception';
 function MyDetailPage() {
   const approveInvoice = useApproveInvoice();
   const rejectInvoice = useRejectInvoice();
-  
+
   return (
     <ReviewForm
       invoiceId={invoiceId}
@@ -252,6 +257,7 @@ function MyDetailPage() {
 The components use a consistent design system with Tailwind CSS:
 
 **Colors**:
+
 - Primary: `blue-600`, `blue-700` (buttons, links)
 - Success: `green-600`, `green-100` (approval states)
 - Danger: `red-600`, `red-100` (rejection states)
@@ -259,6 +265,7 @@ The components use a consistent design system with Tailwind CSS:
 - Gray: `gray-50` to `gray-900` (backgrounds, text)
 
 **Layout**:
+
 - Responsive grid system
 - Card-based layouts with `rounded-lg` and `shadow-sm`
 - Consistent spacing with `p-4`, `p-6`, `space-y-4`
@@ -286,23 +293,23 @@ Review forms use local React state with validation:
 
 ```typescript
 const [formData, setFormData] = useState({
-  reviewed_by: '',
-  review_notes: ''
+  reviewed_by: "",
+  review_notes: "",
 });
 
 const [errors, setErrors] = useState({});
 
-const validateForm = (action: 'approve' | 'reject') => {
+const validateForm = (action: "approve" | "reject") => {
   const newErrors = {};
-  
+
   if (!formData.reviewed_by.trim()) {
-    newErrors.reviewed_by = 'Reviewer name is required';
+    newErrors.reviewed_by = "Reviewer name is required";
   }
-  
-  if (action === 'reject' && !formData.review_notes.trim()) {
-    newErrors.review_notes = 'Review notes are required for rejection';
+
+  if (action === "reject" && !formData.review_notes.trim()) {
+    newErrors.review_notes = "Review notes are required for rejection";
   }
-  
+
   setErrors(newErrors);
   return Object.keys(newErrors).length === 0;
 };
@@ -318,8 +325,8 @@ const approveInvoice = useMutation({
   mutationFn: approveInvoiceApi,
   onSuccess: () => {
     // Invalidate queue to show updated status
-    queryClient.invalidateQueries(['review-queue']);
-  }
+    queryClient.invalidateQueries(["review-queue"]);
+  },
 });
 ```
 
@@ -362,7 +369,7 @@ if (error) {
   return (
     <div className="text-center py-12">
       <p className="text-gray-500 mb-4">Failed to load data</p>
-      <button 
+      <button
         onClick={() => refetch()}
         className="btn-primary"
       >
@@ -388,7 +395,7 @@ const createTestQueryClient = () => new QueryClient({
 
 test('validates required fields on reject', async () => {
   const queryClient = createTestQueryClient();
-  
+
   render(
     <QueryClientProvider client={queryClient}>
       <ReviewForm
@@ -401,9 +408,9 @@ test('validates required fields on reject', async () => {
       />
     </QueryClientProvider>
   );
-  
+
   fireEvent.click(screen.getByText('Reject Invoice'));
-  
+
   expect(screen.getByText('Review notes are required for rejection')).toBeInTheDocument();
 });
 ```
@@ -411,25 +418,25 @@ test('validates required fields on reject', async () => {
 ### E2E Testing with Playwright
 
 ```typescript
-import { test, expect } from '@playwright/test';
+import { test, expect } from "@playwright/test";
 
-test('review workflow', async ({ page }) => {
-  await page.goto('/exception');
-  
+test("review workflow", async ({ page }) => {
+  await page.goto("/exception");
+
   // Check queue loads
   await expect(page.locator('[data-testid="queue-table"]')).toBeVisible();
-  
+
   // Click view button
   await page.click('[data-testid="view-invoice-btn"]:first-child');
-  
+
   // Start review
   await page.click('[data-testid="start-review-btn"]');
-  
+
   // Fill form and approve
-  await page.fill('[data-testid="reviewed-by"]', 'test@example.com');
-  await page.fill('[data-testid="review-notes"]', 'Test approval');
+  await page.fill('[data-testid="reviewed-by"]', "test@example.com");
+  await page.fill('[data-testid="review-notes"]', "Test approval");
   await page.click('[data-testid="approve-btn"]');
-  
+
   // Check success message
   await expect(page.locator('[data-testid="success-message"]')).toBeVisible();
 });
@@ -449,7 +456,7 @@ const prefetchInvoiceDetail = (invoiceId: string) => {
   });
 };
 
-<button 
+<button
   onMouseEnter={() => prefetchInvoiceDetail(invoice.id)}
   onClick={() => navigate(`/review/${invoice.id}`)}
 >
@@ -533,4 +540,4 @@ const handleKeyDown = (event: KeyboardEvent, action: () => void) => {
 
 ## License
 
-This project is licensed under the MIT License. 
+This project is licensed under the MIT License.

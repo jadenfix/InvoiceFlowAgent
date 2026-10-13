@@ -147,7 +147,7 @@ jobs:
     - name: Run unit tests
       working-directory: frontend
       run: |
-        npm test -- --coverage --watchAll=false --testPathPattern="exception" --coverageThreshold='{"global":{"branches":95,"functions":95,"lines":95,"statements":95}}'
+        npm run test:exception:coverage
 
     - name: Build for production
       working-directory: frontend
@@ -434,4 +434,4 @@ jobs:
         status: failure
         text: "❌ Exception Service deployment failed. Check the logs for details."
       env:
-        SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }} 
+        SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}

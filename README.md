@@ -1230,3 +1230,13 @@ The component suite verifies queue interactions and pagination. These tests and
 a production build do not establish live OCR/model accuracy or the full deployed
 microservice pipeline. Record a demo only after exercising authentication → real
 queue → invoice review → persisted approval/rejection against the intended stack.
+
+## CI check status
+
+Frontend formatting, lint, 18 tests, and build pass locally. The CI coverage runner
+uses Vitest options rather than Jest flags and retains the exception module's
+95% coverage requirement. Current exception coverage fails that requirement:
+22.84% lines/statements, 50% functions, 74.19% branches. This is a real test gap,
+not evidence that the full workflow is verified. Backend fatal-error lint passes,
+but the existing full style/complexity check reports 208 findings and Black would
+reformat 15 backend files. These gates remain enabled.
