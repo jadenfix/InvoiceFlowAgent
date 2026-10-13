@@ -71,7 +71,7 @@ export function useApproveInvoice() {
           if (!oldData) return oldData;
           return {
             ...oldData,
-            matched_status: "AUTO_APPROVED",
+            matched_status: "APPROVED",
             reviewed_by: data.reviewed_by,
             reviewed_at: data.reviewed_at,
             review_notes: data.review_notes,

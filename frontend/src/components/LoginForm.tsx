@@ -26,7 +26,6 @@ export const LoginForm: React.FC = () => {
     register,
     handleSubmit,
     formState: { errors, isValid, isDirty },
-    reset,
   } = useForm<LoginFormData>({
     mode: "onBlur",
     defaultValues: {
@@ -226,27 +225,6 @@ export const LoginForm: React.FC = () => {
             </button>
           </p>
         </div>
-
-        {/* Development Helper */}
-        {process.env.NODE_ENV === "development" && (
-          <div className="mt-4 p-3 bg-gray-50 rounded-md text-xs text-gray-500">
-            <p>
-              Dev Helper: Email format required, any password accepted for demo
-            </p>
-            <button
-              type="button"
-              onClick={() => {
-                reset({
-                  email: "demo@invoiceflow.com",
-                  password: "TestPassword123",
-                });
-              }}
-              className="mt-1 text-blue-600 hover:text-blue-500"
-            >
-              Fill demo credentials
-            </button>
-          </div>
-        )}
       </div>
     </div>
   );

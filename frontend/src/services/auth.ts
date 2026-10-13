@@ -14,7 +14,7 @@ import {
 
 // Configure axios instance for auth API
 const authApi = axios.create({
-  baseURL: "/auth",
+  baseURL: `${(import.meta.env.VITE_AUTH_SERVICE_URL || "").replace(/\/$/, "")}/auth`,
   timeout: 10000,
   headers: {
     "Content-Type": "application/json",
@@ -100,7 +100,7 @@ class AuthService {
         if (validationData.details) {
           // Handle detailed validation errors
           const errors = validationData.details
-            .map((detail: any) => detail.msg)
+            .map((detail) => detail.message)
             .join(", ");
           throw new Error(`Validation failed: ${errors}`);
         }

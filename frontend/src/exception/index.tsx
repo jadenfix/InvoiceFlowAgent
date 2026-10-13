@@ -19,7 +19,7 @@ const queryClient = new QueryClient({
       refetchOnWindowFocus: false,
     },
     mutations: {
-      retry: 1,
+      retry: false, // Do not replay a review write after an ambiguous network failure.
     },
   },
 });

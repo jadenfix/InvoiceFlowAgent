@@ -9,7 +9,6 @@ import {
   RejectRequest,
   ReviewResponse,
   QueueFilters,
-  ApiError,
 } from "../types";
 
 const BASE_URL =
@@ -28,20 +27,25 @@ class ApiClient {
   ): Promise<T> {
     const url = `${this.baseUrl}${endpoint}`;
 
+    const token = localStorage.getItem("auth_token");
     const config: RequestInit = {
+      ...options,
       headers: {
         "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
         ...options.headers,
       },
-      ...options,
     };
 
     try {
       const response = await fetch(url, config);
 
       if (!response.ok) {
-        const errorData: ApiError = await response.json();
-        throw new Error(errorData.message || `HTTP ${response.status}`);
+        const errorData = await response.json().catch(() => ({}));
+        const message =
+          errorData.message ||
+          (typeof errorData.detail === "string" ? errorData.detail : undefined);
+        throw new Error(message || `Request failed (HTTP ${response.status})`);
       }
 
       return await response.json();
@@ -107,6 +111,17 @@ class ApiClient {
       method: "POST",
       body: JSON.stringify(request),
     });
+  }
+
+  async getDocument(invoiceId: string): Promise<Blob> {
+    const token = localStorage.getItem("auth_token");
+    const response = await fetch(
+      `${this.baseUrl}/api/v1/review/${encodeURIComponent(invoiceId)}/document`,
+      { headers: token ? { Authorization: `Bearer ${token}` } : {} },
+    );
+    if (!response.ok)
+      throw new Error(`Document unavailable (HTTP ${response.status})`);
+    return response.blob();
   }
 
   async healthCheck(): Promise<{ status: string }> {

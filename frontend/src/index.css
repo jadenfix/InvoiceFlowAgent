@@ -72,3 +72,22 @@ body {
   transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
   transition-duration: 150ms;
 }
+
+/* Keep review content usable on narrow screens. */
+main,
+section,
+.grid > *,
+.flex > * {
+  min-width: 0;
+}
+button,
+p,
+dd {
+  overflow-wrap: anywhere;
+}
+@media (max-width: 639px) {
+  .max-w-7xl {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+}

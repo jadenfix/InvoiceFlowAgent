@@ -2,6 +2,8 @@
  * Invoice Viewer Component for displaying detailed invoice information
  */
 
+import { useState } from "react";
+import { exceptionApi } from "../utils/api";
 import { format } from "date-fns";
 import {
   DocumentTextIcon,
@@ -18,6 +20,23 @@ interface InvoiceViewerProps {
 }
 
 export function InvoiceViewer({ invoice }: InvoiceViewerProps) {
+  const [documentError, setDocumentError] = useState("");
+  const openDocument = async () => {
+    try {
+      const blob = await exceptionApi.getDocument(invoice.id);
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `invoice-${invoice.id}.pdf`;
+      link.click();
+      setTimeout(() => URL.revokeObjectURL(url), 10000);
+      setDocumentError("");
+    } catch (error) {
+      setDocumentError(
+        error instanceof Error ? error.message : "Document unavailable.",
+      );
+    }
+  };
   const formatDate = (dateString?: string) => {
     if (!dateString) return "-";
     try {
@@ -37,7 +56,7 @@ export function InvoiceViewer({ invoice }: InvoiceViewerProps) {
   };
 
   const formatAmount = (amount?: number) => {
-    if (!amount) return "-";
+    if (amount == null) return "-";
     return new Intl.NumberFormat("en-US", {
       style: "currency",
       currency: "USD",
@@ -45,12 +64,13 @@ export function InvoiceViewer({ invoice }: InvoiceViewerProps) {
   };
 
   const formatConfidence = (score?: number) => {
-    if (!score) return "-";
+    if (score == null) return "-";
     return `${(score * 100).toFixed(1)}%`;
   };
 
   const getStatusColor = (status: string) => {
     switch (status.toLowerCase()) {
+      case "approved":
       case "auto_approved":
         return "bg-green-100 text-green-800";
       case "rejected":
@@ -64,6 +84,7 @@ export function InvoiceViewer({ invoice }: InvoiceViewerProps) {
 
   const getStatusIcon = (status: string) => {
     switch (status.toLowerCase()) {
+      case "approved":
       case "auto_approved":
         return <CheckCircleIcon className="h-4 w-4" />;
       case "rejected":
@@ -172,7 +193,21 @@ export function InvoiceViewer({ invoice }: InvoiceViewerProps) {
                     File Path:
                   </dt>
                   <dd className="text-sm text-gray-900 break-all">
-                    {invoice.file_path || "-"}
+                    {invoice.file_path ? (
+                      <button
+                        onClick={openDocument}
+                        className="text-blue-600 underline"
+                      >
+                        Download source PDF
+                      </button>
+                    ) : (
+                      "-"
+                    )}
+                    {documentError && (
+                      <p role="alert" className="text-red-700">
+                        {documentError}
+                      </p>
+                    )}
                   </dd>
                 </div>
               </dl>

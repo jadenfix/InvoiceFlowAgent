@@ -123,7 +123,7 @@ export function QueuePage() {
                 No invoices need review
               </h3>
               <p className="mt-1 text-sm text-gray-500">
-                All invoices have been processed and reviewed.
+                There are currently no invoices in the manual review queue.
               </p>
             </div>
           )}

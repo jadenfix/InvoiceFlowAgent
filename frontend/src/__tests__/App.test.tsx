@@ -40,7 +40,7 @@ describe("review workflow entry point", () => {
       ).toBeInTheDocument();
       expect(
         await screen.findByText(
-          "All invoices have been processed and reviewed.",
+          "There are currently no invoices in the manual review queue.",
         ),
       ).toBeInTheDocument();
       expect(fetchMock).toHaveBeenCalledWith(

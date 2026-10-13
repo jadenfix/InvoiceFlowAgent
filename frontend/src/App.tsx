@@ -1,7 +1,9 @@
 import React, { useEffect } from "react";
-import { Routes, Route, Navigate, Link } from "react-router-dom";
+import { Routes, Route, Navigate, Link, useLocation } from "react-router-dom";
 import { useAuthStore } from "@/stores/authStore";
 import { LoginForm } from "@/components/LoginForm";
+import { RegisterForm } from "@/components/RegisterForm";
+import { PipelineUpload } from "@/components/PipelineUpload";
 import { ExceptionApp } from "./exception";
 
 // Protected Route Component
@@ -11,6 +13,7 @@ interface ProtectedRouteProps {
 
 const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
   const { isAuthenticated, isLoading } = useAuthStore();
+  const location = useLocation();
 
   if (isLoading) {
     return (
@@ -20,7 +23,11 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
     );
   }
 
-  return isAuthenticated ? <>{children}</> : <Navigate to="/login" replace />;
+  return isAuthenticated ? (
+    <>{children}</>
+  ) : (
+    <Navigate to="/login" state={{ from: location.pathname }} replace />
+  );
 };
 
 // Invoice review entry point
@@ -31,7 +38,7 @@ const Dashboard: React.FC = () => {
     <div className="min-h-screen bg-gray-50">
       <nav className="bg-white shadow-sm border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between h-16">
+          <div className="flex flex-wrap justify-between gap-3 py-4">
             <div className="flex items-center">
               <h1 className="text-xl font-semibold text-gray-900">
                 InvoiceFlow Agent Platform
@@ -60,8 +67,8 @@ const Dashboard: React.FC = () => {
                 Review invoices with confidence
               </h2>
               <p className="text-gray-600">
-                Inspect extracted line items, compare matching confidence, and
-                approve or reject exceptions.
+                Inspect extracted fields, matching evidence, and approve or
+                reject exceptions.
               </p>
               <Link
                 to="/exception"
@@ -71,6 +78,7 @@ const Dashboard: React.FC = () => {
               </Link>
             </div>
           </div>
+          <PipelineUpload />
         </div>
       </main>
     </div>
@@ -103,7 +111,15 @@ const App: React.FC = () => {
   return (
     <div className="App">
       <Routes>
-        <Route path="/login" element={<LoginForm />} />
+        <Route
+          path="/login"
+          element={
+            <main className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
+              <LoginForm />
+            </main>
+          }
+        />
+        <Route path="/register" element={<RegisterForm />} />
         <Route
           path="/exception/*"
           element={
