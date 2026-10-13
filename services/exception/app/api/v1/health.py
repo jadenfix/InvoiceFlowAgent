@@ -1,6 +1,7 @@
 """Health check endpoints."""
 
 from datetime import datetime
+from sqlalchemy import text
 from fastapi import APIRouter, HTTPException, status
 
 from ...models.schemas import HealthResponse, ReadinessResponse
@@ -37,7 +38,7 @@ async def readiness_probe():
 
             # Try to get a session and execute a simple query
             async with get_db_session() as session:
-                await session.execute("SELECT 1")
+                await session.execute(text("SELECT 1"))
             checks["database"] = "healthy"
             logger.debug("Database check passed")
         except Exception as e:
