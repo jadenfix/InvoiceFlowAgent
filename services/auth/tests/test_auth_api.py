@@ -366,10 +366,11 @@ class TestSecurityHeaders:
     def test_cors_headers(self, test_client):
         """Test CORS headers are present."""
         # Make an OPTIONS request to check CORS
-        response = test_client.options("/auth/status")
+        response = test_client.options("/auth/status", headers={"Origin": "http://localhost:5173", "Access-Control-Request-Method": "GET"})
         
-        # CORS headers should be present (handled by middleware)
+        # A real allowed-origin preflight must carry the CORS contract.
         assert response.status_code in [200, 204]
+        assert response.headers["access-control-allow-origin"] == "http://localhost:5173"
 
 
 class TestInputValidation:

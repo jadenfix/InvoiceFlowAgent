@@ -58,7 +58,7 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
                 status_code=500,
                 content={
                     "error": "Internal server error",
-                    "message": "An unexpected error occurred",
+                    "message": "An internal error occurred",
                     "request_id": request_id,
                 },
                 headers={"X-Request-ID": request_id}
@@ -86,7 +86,7 @@ class ErrorHandlingMiddleware(BaseHTTPMiddleware):
                 status_code=500,
                 content={
                     "error": "Internal server error",
-                    "message": "An unexpected error occurred"
+                    "message": "An internal error occurred"
                 }
             )
 

@@ -2,13 +2,13 @@
 
 import asyncio
 import json
-from typing import Callable, Optional, Dict, Any, Awaitable
 from datetime import datetime
+from typing import Any, Awaitable, Callable, Dict, Optional
 
 import aio_pika
-from aio_pika import Message, DeliveryMode
-from aio_pika.abc import AbstractConnection, AbstractChannel, AbstractQueue
 import structlog
+from aio_pika import DeliveryMode, Message
+from aio_pika.abc import AbstractChannel, AbstractConnection, AbstractQueue
 
 from ..core.config import settings
 from ..core.logging import log_error, log_matching_event

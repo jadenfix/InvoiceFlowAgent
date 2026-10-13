@@ -1,11 +1,12 @@
 """Core matching service for invoice-PO matching logic."""
 
 from decimal import Decimal
-from typing import Dict, Any
+from typing import Any, Dict
+
 import structlog
 
 from ..core.config import settings
-from ..core.logging import log_matching_event, log_error, set_request_id
+from ..core.logging import log_error, log_matching_event, set_request_id
 from ..models.invoice import (
     InvoiceExtractedMessage,
     InvoiceMatchedMessage,

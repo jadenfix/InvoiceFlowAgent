@@ -1,12 +1,12 @@
 """Health check endpoints for the matching service."""
 
+import structlog
 from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel
-import structlog
 
+from ..core.config import settings
 from ..services.database_service import db_service
 from ..services.message_queue import mq_service
-from ..core.config import settings
 
 logger = structlog.get_logger(__name__)
 

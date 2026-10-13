@@ -1,6 +1,7 @@
 """Configuration settings for the matching service."""
 
 from decimal import Decimal
+
 from pydantic.v1 import BaseSettings, validator
 
 

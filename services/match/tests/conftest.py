@@ -45,7 +45,7 @@ async def rabbitmq_container():
 async def db_engine(postgres_container):
     """Create test database engine."""
     database_url = postgres_container.get_connection_url().replace(
-        "postgresql://", "postgresql+asyncpg://"
+        "psycopg2", "asyncpg"
     )
     
     engine = create_async_engine(database_url, echo=False)

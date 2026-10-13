@@ -1,18 +1,18 @@
 """Database service for managing connections and operations."""
 
 import asyncio
-from typing import Optional
 from contextlib import asynccontextmanager
+from typing import Optional
 
-from sqlalchemy import select, update, func
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
-from sqlalchemy.exc import SQLAlchemyError
 import structlog
+from sqlalchemy import func, select, update
+from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from ..core.config import settings
 from ..core.logging import log_error, log_matching_event
-from ..models.purchase_order import PurchaseOrder
 from ..models.invoice import Invoice, InvoiceMatchUpdate
+from ..models.purchase_order import PurchaseOrder
 
 logger = structlog.get_logger(__name__)
 

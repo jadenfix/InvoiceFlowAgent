@@ -71,8 +71,8 @@ class JWTManager:
             )
             
             # Extract email from subject claim
-            email: str = payload.get("sub")
-            user_id: int = payload.get("user_id")
+            email = payload.get("sub")
+            user_id = payload.get("user_id")
             
             if email is None:
                 raise AuthenticationError("Token missing email claim")

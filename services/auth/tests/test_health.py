@@ -37,8 +37,8 @@ class TestHealthEndpoints:
         assert "database" in data["checks"]
         assert "configuration" in data["checks"]
     
-    @patch('app.core.database.check_db_health')
-    async def test_readiness_probe_database_unhealthy(self, mock_db_health, test_client):
+    @patch('app.api.health.check_db_health')
+    def test_readiness_probe_database_unhealthy(self, mock_db_health, test_client):
         """Test readiness probe with unhealthy database."""
         # Mock unhealthy database
         mock_db_health.return_value = {
@@ -92,8 +92,8 @@ class TestHealthEndpoints:
         assert features["rate_limiting"] is True
         assert features["logging"] is True
     
-    @patch('app.core.database.check_db_health')
-    async def test_detailed_health_check_database_unhealthy(self, mock_db_health, test_client):
+    @patch('app.api.health.check_db_health')
+    def test_detailed_health_check_database_unhealthy(self, mock_db_health, test_client):
         """Test detailed health check with unhealthy database."""
         # Mock unhealthy database
         mock_db_health.return_value = {
@@ -112,7 +112,7 @@ class TestHealthEndpoints:
         assert "Connection timeout" in str(data["checks"]["database"]["details"])
     
     @patch('app.api.health.check_db_health')
-    async def test_health_check_exception_handling(self, mock_db_health, test_client):
+    def test_health_check_exception_handling(self, mock_db_health, test_client):
         """Test health check when database health check raises exception."""
         # Mock exception during health check
         mock_db_health.side_effect = Exception("Database check failed")
@@ -128,7 +128,7 @@ class TestHealthEndpoints:
     def test_liveness_probe_no_dependencies(self, test_client):
         """Test that liveness probe doesn't depend on external services."""
         # Even if database is down, liveness should still work
-        with patch('app.core.database.check_db_health', side_effect=Exception("DB down")):
+        with patch('app.api.health.check_db_health', side_effect=Exception("DB down")):
             response = test_client.get("/healthz")
             
             assert response.status_code == status.HTTP_200_OK
@@ -176,7 +176,7 @@ class TestHealthEndpoints:
 class TestHealthErrorHandling:
     """Test error handling in health checks."""
     
-    @patch('app.api.health.time.time')
+    @patch('app.api.health.clock')
     def test_liveness_probe_exception(self, mock_time, test_client):
         """Test liveness probe when time calculation fails."""
         mock_time.side_effect = Exception("Time error")
@@ -190,7 +190,7 @@ class TestHealthErrorHandling:
         assert "not responding properly" in data["error"]
     
     @patch('app.api.health.check_db_health')
-    async def test_readiness_probe_db_exception(self, mock_db_health, test_client):
+    def test_readiness_probe_db_exception(self, mock_db_health, test_client):
         """Test readiness probe when database health check raises exception."""
         mock_db_health.side_effect = Exception("DB health check failed")
         

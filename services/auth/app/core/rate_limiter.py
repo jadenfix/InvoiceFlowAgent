@@ -5,7 +5,7 @@ Prevents brute force attacks with in-memory and database tracking
 import time
 from typing import Dict, Optional
 from collections import defaultdict
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from fastapi import HTTPException, status, Request
 from sqlalchemy.orm import Session
 from app.core.config import settings
@@ -54,7 +54,7 @@ class RateLimiter:
         
         return len(self.email_attempts[email]) < self.max_attempts
     
-    def record_attempt(self, ip_address: str, email: str = None):
+    def record_attempt(self, ip_address: str, email: str | None = None):
         """Record a failed attempt."""
         current_time = time.time()
         
@@ -72,7 +72,7 @@ class RateLimiter:
             if email in self.email_attempts:
                 del self.email_attempts[email]
     
-    def get_remaining_attempts(self, ip_address: str = None, email: str = None) -> int:
+    def get_remaining_attempts(self, ip_address: str | None = None, email: str | None = None) -> int:
         """Get remaining attempts for IP or email."""
         remaining_ip = self.max_attempts
         remaining_email = self.max_attempts
@@ -92,7 +92,7 @@ class RateLimiter:
         
         return min(remaining_ip, remaining_email)
     
-    def get_lockout_time_remaining(self, ip_address: str = None, email: str = None) -> int:
+    def get_lockout_time_remaining(self, ip_address: str | None = None, email: str | None = None) -> int:
         """Get remaining lockout time in seconds."""
         oldest_attempt_time = 0
         
@@ -136,7 +136,7 @@ def get_client_ip(request: Request) -> str:
     return "unknown"
 
 
-def check_rate_limit(request: Request, email: str = None) -> None:
+def check_rate_limit(request: Request, email: str | None = None) -> None:
     """Check rate limits and raise HTTPException if exceeded."""
     client_ip = get_client_ip(request)
     
@@ -186,7 +186,7 @@ def check_rate_limit(request: Request, email: str = None) -> None:
         )
 
 
-def record_failed_attempt(request: Request, email: str = None):
+def record_failed_attempt(request: Request, email: str | None = None):
     """Record a failed login attempt."""
     client_ip = get_client_ip(request)
     rate_limiter.record_attempt(client_ip, email)
@@ -220,7 +220,10 @@ def check_user_account_lockout(user: User) -> None:
     if user.is_account_locked():
         remaining_time = settings.rate_limit_window_minutes * 60
         if user.last_failed_login:
-            elapsed = (datetime.utcnow() - user.last_failed_login).total_seconds()
+            last = user.last_failed_login
+            if last.tzinfo is None:
+                last = last.replace(tzinfo=timezone.utc)
+            elapsed = (datetime.now(timezone.utc) - last).total_seconds()
             remaining_time = max(0, int(remaining_time - elapsed))
         
         log_auth_event(

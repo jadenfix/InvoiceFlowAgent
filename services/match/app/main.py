@@ -5,12 +5,12 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
+from .api.health import router as health_router
 from .core.config import settings
 from .core.logging import configure_logging, get_logger
-from .api.health import router as health_router
 from .services.database_service import db_service
-from .services.message_queue import mq_service
 from .services.matching_service import matching_service
+from .services.message_queue import mq_service
 
 # Configure logging
 configure_logging()

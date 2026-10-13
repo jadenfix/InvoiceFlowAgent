@@ -45,6 +45,7 @@ def test_db():
     
     # Cleanup
     Base.metadata.drop_all(bind=engine)
+    engine.dispose()
     
     # Remove test database file
     if os.path.exists("./test_auth.db"):
@@ -184,7 +185,7 @@ def mock_db_failure(monkeypatch):
     def mock_get_db():
         raise Exception("Database connection failed")
     
-    monkeypatch.setattr("app.core.database.get_db", mock_get_db)
+    monkeypatch.setitem(app.dependency_overrides, get_db, mock_get_db)
 
 
 @pytest.fixture
@@ -211,5 +212,7 @@ def setup_test_environment(monkeypatch):
     """Setup test environment variables."""
     monkeypatch.setenv("ENVIRONMENT", "testing")
     monkeypatch.setenv("DATABASE_URL", TEST_DATABASE_URL)
+    monkeypatch.setattr(settings, "database_url", TEST_DATABASE_URL)
+    monkeypatch.setattr(settings, "environment", "testing")
     monkeypatch.setenv("JWT_SECRET", "test-secret-key-that-is-long-enough-for-testing")
     monkeypatch.setenv("LOG_LEVEL", "DEBUG") 

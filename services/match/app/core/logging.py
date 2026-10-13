@@ -1,10 +1,12 @@
 """Logging configuration for the matching service."""
 
 import logging
-import structlog
 import sys
-from typing import Any, Dict
 from contextvars import ContextVar
+from typing import Any, Dict
+
+import structlog
+from structlog.types import Processor
 
 from .config import settings
 
@@ -15,6 +17,11 @@ request_id_ctx: ContextVar[str] = ContextVar("request_id", default="")
 def configure_logging() -> None:
     """Configure structured logging for the application."""
 
+    renderer: Processor
+    if settings.log_level == "DEBUG":
+        renderer = structlog.processors.JSONRenderer()
+    else:
+        renderer = structlog.dev.ConsoleRenderer()
     # Configure structlog
     structlog.configure(
         processors=[
@@ -22,11 +29,7 @@ def configure_logging() -> None:
             structlog.processors.add_log_level,
             structlog.processors.StackInfoRenderer(),
             structlog.dev.set_exc_info,
-            (
-                structlog.processors.JSONRenderer()
-                if settings.log_level == "DEBUG"
-                else structlog.dev.ConsoleRenderer()
-            ),
+            renderer,
         ],
         wrapper_class=structlog.make_filtering_bound_logger(
             getattr(logging, settings.log_level.upper())
