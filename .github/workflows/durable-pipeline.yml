@@ -12,7 +12,7 @@ jobs:
         with:
           python-version: '3.11'
       - run: pip install -r services/pipeline/requirements.txt
-      - run: python -m pytest tests/pipeline -q
+      - run: python -m pytest tests/pipeline tests/legacy/test_document_contract.py -q
       - run: docker compose -f docker-compose.pipeline.yml up -d --build --wait --wait-timeout 240
       - run: python scripts/check_pipeline_http.py
       - uses: actions/setup-node@v4

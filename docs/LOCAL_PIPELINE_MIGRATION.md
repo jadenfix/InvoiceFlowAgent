@@ -1,0 +1,15 @@
+# One authoritative local invoice pipeline
+
+The historical ingest/extract CLIs now serve the canonical `services.pipeline.runtime` application. Run them from their original directories (`python -m app.main`), or use `docker compose -f docker-compose.pipeline.yml up --build`. Ingest defaults to port 8003 and extract to 8004. Compose publishes ingest/extract/match at 8003/8004/8005.
+
+`EXTRACTION_MODE=local_text` is the supported document mode: fields come from embedded PDF text through the strict pypdf parser. OCR, Textract and LLM modes are explicitly rejected. This is not a claim of scanned-document accuracy or live AI integration. Multipart metadata cannot override document fields.
+
+Upload remains `POST /api/v1/ingest/upload` (202), status is `GET /api/v1/ingest/status/{request_id}` (404 for unknown IDs), stats reflect persisted rows, and `/healthz` aliases actual readiness. Liveness alone does not assert provider readiness. Browser registration/login/review/download use the local opaque-session issuer; the independently tested legacy Auth JWT issuer remains a separate service contract.
+
+The authoritative schema is the `pipeline_*` PostgreSQL tables. Prototype `ingestions`/`invoices_raw` tables are not automatically imported or treated as completed invoices. Preserve existing databases and migrate documents explicitly through upload; no prototype data is deleted. Extract and match workers use transactional, unique outbox stages and durable RabbitMQ queues. A matched invoice is `MATCHED` until RabbitMQ confirms the final `pipeline_complete` event; only then is it `COMPLETED`. Provider errors cannot be converted to successful completion.
+
+For local S3 byte storage, use `docker-compose.e2e.yml`: start postgres/rabbitmq/localstack, run `python scripts/check_legacy_storage.py --bootstrap`, then start all services with `--build --wait`. All three roles use the same PostgreSQL, broker and explicitly configured local S3 emulator. No Docker socket or AWS discovery is used. Source bytes are written and read back before upload acceptance; extracted JSON goes to a separate processed bucket. The upload API returns 503 and creates no invoice if source storage fails.
+
+S3 requires `S3_ENDPOINT_URL`, explicit `AWS_ACCESS_KEY_ID`/`AWS_SECRET_ACCESS_KEY`, `S3_BUCKET_INVOICES`, and `S3_BUCKET_PROCESSED`. Endpoint validation allows loopback/private emulator addresses and known Compose emulator names, and rejects public, link-local metadata, unspecified, multicast or reserved destinations. With no S3 configuration, durable PostgreSQL PDF storage remains the default. This local mirror is not live AWS integration or a public deployment contract.
+
+The E2E harness attaches to this one stack. It requires exact document-derived 995.00/PO auto-approval and 2500.00/no-PO review decisions, contradictory metadata immunity, original S3 byte equality, actual persisted rows and correlated terminal events. It also verifies malformed PDFs and a real missing-bucket failure. The former harness's blank PDFs, conditional decisions/events, independent Testcontainers providers and simulated upload/status/health have been retired.

@@ -22,12 +22,14 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
 from .extraction import extract_fields, match_amount
+from .storage import S3Mirror
+from pamqp.commands import Basic
 
 log = logging.getLogger(__name__)
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS pipeline_invoices (
  id UUID PRIMARY KEY, filename TEXT NOT NULL, pdf BYTEA NOT NULL,
- status TEXT NOT NULL CHECK(status IN ('PENDING','EXTRACTED','COMPLETED','FAILED')),
+ status TEXT NOT NULL CHECK(status IN ('PENDING','EXTRACTED','MATCHED','COMPLETED','FAILED')),
  fields JSONB, match_result JSONB, error TEXT,
  created_at TIMESTAMPTZ NOT NULL DEFAULT now(), updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
@@ -49,9 +51,13 @@ CREATE TABLE IF NOT EXISTS pipeline_reviews (
 );
 CREATE TABLE IF NOT EXISTS pipeline_outbox (
  id UUID PRIMARY KEY, invoice_id UUID NOT NULL REFERENCES pipeline_invoices(id),
- stage TEXT NOT NULL CHECK(stage IN ('extract','match')), sent BOOLEAN NOT NULL DEFAULT false,
+ stage TEXT NOT NULL CHECK(stage IN ('extract','match','complete')), sent BOOLEAN NOT NULL DEFAULT false,
  UNIQUE(invoice_id,stage)
 );
+ALTER TABLE pipeline_invoices DROP CONSTRAINT IF EXISTS pipeline_invoices_status_check;
+ALTER TABLE pipeline_invoices ADD CONSTRAINT pipeline_invoices_status_check CHECK(status IN ('PENDING','EXTRACTED','MATCHED','COMPLETED','FAILED'));
+ALTER TABLE pipeline_outbox DROP CONSTRAINT IF EXISTS pipeline_outbox_stage_check;
+ALTER TABLE pipeline_outbox ADD CONSTRAINT pipeline_outbox_stage_check CHECK(stage IN ('extract','match','complete'));
 """
 
 
@@ -87,6 +93,7 @@ def password_hash(password, salt=None):
 
 class Pipeline:
     def __init__(self):
+        self.storage = S3Mirror.from_env()
         self.pool = None
         self.connection = None
         self.channel = None
@@ -110,17 +117,23 @@ class Pipeline:
                     ),
                     timeout=3,
                 )
-            self.channel = await self.connection.channel(publisher_confirms=True)
+            self.channel = await self.connection.channel(
+                publisher_confirms=True, on_return_raises=True
+            )
             await self.channel.set_qos(prefetch_count=1)
-            for stage in ("extract", "match"):
+            for stage in ("extract", "match", "complete"):
                 await self.channel.declare_queue(f"pipeline_{stage}", durable=True)
 
     async def start(self, role):
+        if os.getenv("EXTRACTION_MODE", "local_text") != "local_text":
+            raise ValueError("Only explicit local_text PDF extraction is supported")
+        if self.storage:
+            await asyncio.to_thread(self.storage.check_ready)
         self.pool = await asyncpg.create_pool(
             os.getenv(
                 "DATABASE_URL",
                 "postgresql://testuser:testpassword@127.0.0.1/invoiceflow_test",
-            ),
+            ).replace("postgresql+asyncpg://", "postgresql://"),
             min_size=1,
             max_size=5,
         )
@@ -165,16 +178,28 @@ class Pipeline:
                         for row in rows:
                             message = aio_pika.Message(
                                 json.dumps(
-                                    {"invoice_id": str(row["invoice_id"])}
+                                    {
+                                        "invoice_id": str(row["invoice_id"]),
+                                        "stage": row["stage"],
+                                    }
                                 ).encode(),
                                 delivery_mode=aio_pika.DeliveryMode.PERSISTENT,
                                 message_id=str(row["id"]),
                             )
-                            await self.channel.default_exchange.publish(
+                            confirmation = await self.channel.default_exchange.publish(
                                 message,
                                 routing_key=f"pipeline_{row['stage']}",
                                 mandatory=True,
                             )
+                            if not isinstance(confirmation, Basic.Ack):
+                                raise RuntimeError(
+                                    "Broker did not confirm durable publication"
+                                )
+                            if row["stage"] == "complete":
+                                await conn.execute(
+                                    "UPDATE pipeline_invoices SET status='COMPLETED',updated_at=now() WHERE id=$1 AND status='MATCHED'",
+                                    row["invoice_id"],
+                                )
                             await conn.execute(
                                 "UPDATE pipeline_outbox SET sent=true WHERE id=$1",
                                 row["id"],
@@ -234,6 +259,10 @@ class Pipeline:
                             str(error),
                         )
                         return
+                    if self.storage:
+                        await asyncio.to_thread(
+                            self.storage.put_fields, invoice_id, fields
+                        )
                     await conn.execute(
                         "UPDATE pipeline_invoices SET status='EXTRACTED',fields=$2::jsonb,updated_at=now() WHERE id=$1",
                         invoice_id,
@@ -264,9 +293,14 @@ class Pipeline:
                         )
                         result["po_number"] = po["po_number"]
                     await conn.execute(
-                        "UPDATE pipeline_invoices SET status='COMPLETED',match_result=$2::jsonb,updated_at=now() WHERE id=$1",
+                        "UPDATE pipeline_invoices SET status='MATCHED',match_result=$2::jsonb,updated_at=now() WHERE id=$1",
                         invoice_id,
                         json.dumps(result),
+                    )
+                    await conn.execute(
+                        "INSERT INTO pipeline_outbox(id,invoice_id,stage) VALUES($1,$2,'complete') ON CONFLICT(invoice_id,stage) DO NOTHING",
+                        uuid.uuid4(),
+                        invoice_id,
                     )
 
 
@@ -541,6 +575,7 @@ def create_app(role=None):
     async def health_live():
         return {"status": "alive", "role": role}
 
+    @app.get("/healthz")
     @app.get("/health/ready")
     async def health_ready():
         try:
@@ -558,7 +593,10 @@ def create_app(role=None):
                 ),
                 timeout=2,
             )
+            if pipeline.storage:
+                await asyncio.to_thread(pipeline.storage.check_ready)
             return {
+                "storage": "local_s3_verified" if pipeline.storage else "postgresql",
                 "status": "ready",
                 "database": "postgresql",
                 "queue": "rabbitmq",
@@ -599,6 +637,14 @@ def create_app(role=None):
         if not content.startswith(b"%PDF-"):
             raise HTTPException(400, "Invalid PDF signature")
         invoice_id = uuid.uuid4()
+        if pipeline.storage:
+            try:
+                await asyncio.to_thread(
+                    pipeline.storage.put_source, invoice_id, content
+                )
+            except Exception:
+                log.exception("S3 source storage failed; upload not accepted")
+                raise HTTPException(503, "Source storage unavailable")
         async with pipeline.pool.acquire() as conn:
             async with conn.transaction():
                 await conn.execute(
@@ -641,7 +687,7 @@ def create_app(role=None):
         return {
             **{
                 key: counts.get(key, 0)
-                for key in ("pending", "extracted", "completed", "failed")
+                for key in ("pending", "extracted", "matched", "completed", "failed")
             },
             "total": sum(counts.values()),
         }

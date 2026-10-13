@@ -34,9 +34,11 @@ def extract_fields(content: bytes) -> dict:
             return None
         return values[0]
 
-    total = field(r"^\s*Total(?: Amount)?\s*:\s*\$?([\d,]+(?:\.\d{1,2})?)\s*$", True)
+    total = field(r"^\s*Total(?: Amount)?\s*:\s*(.*?)\s*$", True)
+    if not re.fullmatch(r"\$?(?:\d+|\d{1,3}(?:,\d{3})+)(?:\.\d{1,2})?", total):
+        raise ValueError("Invalid total amount or thousands grouping")
     try:
-        amount = Decimal(total.replace(",", ""))
+        amount = Decimal(total.lstrip("$").replace(",", ""))
         if not amount.is_finite() or amount <= 0:
             raise ValueError("Total must be positive")
     except InvalidOperation as error:
