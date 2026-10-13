@@ -3,7 +3,7 @@
 import os
 from decimal import Decimal
 from typing import Optional
-from pydantic import BaseSettings, validator
+from pydantic.v1 import BaseSettings, validator
 
 
 class Settings(BaseSettings):
