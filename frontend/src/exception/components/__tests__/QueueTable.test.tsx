@@ -1,8 +1,8 @@
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 /**
  * Unit tests for QueueTable component
  */
 
-import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { QueueTable } from '../QueueTable';
 import { InvoiceQueueItem, QueueFilters } from '../../types';
@@ -35,13 +35,13 @@ const defaultProps = {
   items: mockInvoices,
   isLoading: false,
   filters: {},
-  onFiltersChange: jest.fn(),
-  onViewInvoice: jest.fn(),
+  onFiltersChange: vi.fn(),
+  onViewInvoice: vi.fn(),
 };
 
 describe('QueueTable', () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   it('renders invoice data correctly', () => {
@@ -72,7 +72,7 @@ describe('QueueTable', () => {
   });
 
   it('calls onViewInvoice when view button is clicked', () => {
-    const onViewInvoice = jest.fn();
+    const onViewInvoice = vi.fn();
     render(<QueueTable {...defaultProps} onViewInvoice={onViewInvoice} />);
     
     const viewButtons = screen.getAllByText('View');
@@ -82,7 +82,7 @@ describe('QueueTable', () => {
   });
 
   it('handles column sorting', () => {
-    const onFiltersChange = jest.fn();
+    const onFiltersChange = vi.fn();
     render(<QueueTable {...defaultProps} onFiltersChange={onFiltersChange} />);
     
     const vendorHeader = screen.getByText('Vendor').closest('th');
@@ -95,7 +95,7 @@ describe('QueueTable', () => {
   });
 
   it('toggles sort order when clicking same column', () => {
-    const onFiltersChange = jest.fn();
+    const onFiltersChange = vi.fn();
     const filters: QueueFilters = {
       sort_by: 'vendor_name',
       sort_order: 'desc',
@@ -124,7 +124,7 @@ describe('QueueTable', () => {
   });
 
   it('applies filters when filter form is submitted', async () => {
-    const onFiltersChange = jest.fn();
+    const onFiltersChange = vi.fn();
     render(<QueueTable {...defaultProps} onFiltersChange={onFiltersChange} />);
     
     // Open filters
@@ -150,7 +150,7 @@ describe('QueueTable', () => {
   });
 
   it('clears filters when clear button is clicked', async () => {
-    const onFiltersChange = jest.fn();
+    const onFiltersChange = vi.fn();
     const filters: QueueFilters = {
       vendor_filter: 'Acme',
       date_from: '2024-01-01',
@@ -194,7 +194,7 @@ describe('QueueTable', () => {
     render(<QueueTable {...defaultProps} />);
     
     expect(screen.getByText('Jan 15, 2024')).toBeInTheDocument();
-    expect(screen.getByText('Jan 14, 2024')).toBeInTheDocument();
+    expect(screen.getAllByText('Jan 14, 2024')).toHaveLength(2);
   });
 
   it('handles missing data gracefully', () => {

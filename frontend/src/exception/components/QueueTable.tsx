@@ -2,14 +2,13 @@
  * Queue Table Component for displaying invoices needing review
  */
 
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { format } from 'date-fns';
 import { 
   ChevronUpIcon, 
   ChevronDownIcon, 
   EyeIcon,
   FunnelIcon,
-  XMarkIcon
 } from '@heroicons/react/24/outline';
 import { InvoiceQueueItem, QueueFilters } from '../types';
 
@@ -64,7 +63,7 @@ export function QueueTable({
   };
 
   const formatAmount = (amount?: number) => {
-    if (!amount) return '-';
+    if (amount == null) return '-';
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
       currency: 'USD',
@@ -81,7 +80,7 @@ export function QueueTable({
   };
 
   const formatConfidence = (score?: number) => {
-    if (!score) return '-';
+    if (score == null) return '-';
     return `${(score * 100).toFixed(1)}%`;
   };
 
@@ -107,11 +106,12 @@ export function QueueTable({
           <div className="mt-4 p-4 bg-gray-50 rounded-md">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label htmlFor="vendor-filter" className="block text-sm font-medium text-gray-700 mb-1">
                   Vendor
                 </label>
                 <input
                   type="text"
+                  id="vendor-filter"
                   value={localFilters.vendor_filter || ''}
                   onChange={(e) => setLocalFilters({
                     ...localFilters,
@@ -122,11 +122,12 @@ export function QueueTable({
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label htmlFor="date-from" className="block text-sm font-medium text-gray-700 mb-1">
                   From Date
                 </label>
                 <input
                   type="date"
+                  id="date-from"
                   value={localFilters.date_from || ''}
                   onChange={(e) => setLocalFilters({
                     ...localFilters,
@@ -136,11 +137,12 @@ export function QueueTable({
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label htmlFor="date-to" className="block text-sm font-medium text-gray-700 mb-1">
                   To Date
                 </label>
                 <input
                   type="date"
+                  id="date-to"
                   value={localFilters.date_to || ''}
                   onChange={(e) => setLocalFilters({
                     ...localFilters,
@@ -177,6 +179,11 @@ export function QueueTable({
                 scope="col" 
                 className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
                 onClick={() => handleSort('vendor_name')}
+                tabIndex={0}
+                aria-sort={filters.sort_by === 'vendor_name' ? (filters.sort_order === 'desc' ? 'descending' : 'ascending') : 'none'}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); handleSort('vendor_name'); }
+                }}
               >
                 <div className="flex items-center space-x-1">
                   <span>Vendor</span>
@@ -197,6 +204,11 @@ export function QueueTable({
                 scope="col" 
                 className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
                 onClick={() => handleSort('total_amount')}
+                tabIndex={0}
+                aria-sort={filters.sort_by === 'total_amount' ? (filters.sort_order === 'desc' ? 'descending' : 'ascending') : 'none'}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); handleSort('total_amount'); }
+                }}
               >
                 <div className="flex items-center space-x-1">
                   <span>Amount</span>
@@ -207,6 +219,11 @@ export function QueueTable({
                 scope="col" 
                 className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
                 onClick={() => handleSort('invoice_date')}
+                tabIndex={0}
+                aria-sort={filters.sort_by === 'invoice_date' ? (filters.sort_order === 'desc' ? 'descending' : 'ascending') : 'none'}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); handleSort('invoice_date'); }
+                }}
               >
                 <div className="flex items-center space-x-1">
                   <span>Invoice Date</span>
@@ -220,6 +237,11 @@ export function QueueTable({
                 scope="col" 
                 className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
                 onClick={() => handleSort('created_at')}
+                tabIndex={0}
+                aria-sort={filters.sort_by === 'created_at' ? (filters.sort_order === 'desc' ? 'descending' : 'ascending') : 'none'}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); handleSort('created_at'); }
+                }}
               >
                 <div className="flex items-center space-x-1">
                   <span>Created</span>
@@ -236,7 +258,7 @@ export function QueueTable({
               <tr>
                 <td colSpan={7} className="px-6 py-4 text-center text-sm text-gray-500">
                   <div className="flex items-center justify-center space-x-2">
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                    <div role="progressbar" aria-label="Loading invoices" className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
                     <span>Loading...</span>
                   </div>
                 </td>

@@ -50,7 +50,7 @@ export const useSearch = () => {
     parsing: false
   })
 
-  const search = useCallback(async (query: string): Promise<void> => {
+  const search = async (query: string): Promise<void> => {
     if (!query?.trim()) {
       setState(prev => ({ ...prev, error: 'Query cannot be empty' }))
       return
@@ -95,7 +95,7 @@ export const useSearch = () => {
         parsing: false
       })
     }
-  }, [])
+  }
 
   const parseQuery = async (query: string, retryCount = 0): Promise<ParseResponse> => {
     try {

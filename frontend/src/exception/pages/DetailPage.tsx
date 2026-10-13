@@ -2,7 +2,7 @@
  * Detail Page - Page for reviewing individual invoices
  */
 
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeftIcon, ExclamationTriangleIcon, CheckCircleIcon } from '@heroicons/react/24/outline';
 import { useInvoiceDetail, useApproveInvoice, useRejectInvoice } from '../hooks/useApi';

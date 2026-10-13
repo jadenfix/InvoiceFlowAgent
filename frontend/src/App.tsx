@@ -1,7 +1,8 @@
 import React, { useEffect } from 'react'
-import { Routes, Route, Navigate } from 'react-router-dom'
+import { Routes, Route, Navigate, Link } from 'react-router-dom'
 import { useAuthStore } from '@/stores/authStore'
 import { LoginForm } from '@/components/LoginForm'
+import { ExceptionApp } from './exception'
 
 // Protected Route Component
 interface ProtectedRouteProps {
@@ -22,7 +23,7 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
   return isAuthenticated ? <>{children}</> : <Navigate to="/login" replace />
 }
 
-// Dashboard Component (placeholder for now)
+// Invoice review entry point
 const Dashboard: React.FC = () => {
   const { user, logout } = useAuthStore()
   
@@ -51,8 +52,9 @@ const Dashboard: React.FC = () => {
         <div className="px-4 py-6 sm:px-0">
           <div className="border-4 border-dashed border-gray-200 rounded-lg h-96 flex items-center justify-center">
             <div className="text-center">
-              <h2 className="text-2xl font-medium text-gray-900 mb-4">Dashboard Coming Soon</h2>
-              <p className="text-gray-600">Your InvoiceFlow dashboard will be available here.</p>
+              <h2 className="text-2xl font-medium text-gray-900 mb-4">Review invoices with confidence</h2>
+              <p className="text-gray-600">Inspect extracted line items, compare matching confidence, and approve or reject exceptions.</p>
+              <Link to="/exception" className="mt-6 inline-block rounded-md bg-blue-600 px-5 py-3 font-medium text-white hover:bg-blue-700">Open review queue</Link>
             </div>
           </div>
         </div>
@@ -88,6 +90,7 @@ const App: React.FC = () => {
     <div className="App">
       <Routes>
         <Route path="/login" element={<LoginForm />} />
+        <Route path="/exception/*" element={<ProtectedRoute><ExceptionApp /></ProtectedRoute>} />
         <Route 
           path="/dashboard" 
           element={

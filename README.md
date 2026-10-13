@@ -1205,4 +1205,28 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ---
 
-Built with ❤️ by the InvoiceFlow team 
+Built with ❤️ by the InvoiceFlow team
+
+## Frontend review workflow
+
+```sh
+cd frontend
+npm ci
+npm run lint
+npm test -- --run --threads=false
+npm run build
+npm run dev
+```
+
+The signed-in dashboard links to `/exception`, where the existing review service
+supplies the queue and invoice details. Queue pagination, accessible filtering,
+keyboard sorting, and approve/reject forms are available. Set
+`VITE_EXCEPTION_API_URL` to the exception service URL (default
+`http://localhost:8007`) and run the authentication and exception services before
+using the frontend. The frontend does not supply synthetic invoices when the
+service is unavailable; it shows a retryable error.
+
+The component suite verifies queue interactions and pagination. These tests and
+a production build do not establish live OCR/model accuracy or the full deployed
+microservice pipeline. Record a demo only after exercising authentication → real
+queue → invoice review → persisted approval/rejection against the intended stack.

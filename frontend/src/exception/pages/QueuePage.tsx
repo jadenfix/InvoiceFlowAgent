@@ -2,7 +2,7 @@
  * Queue Page - Main page for displaying invoices needing review
  */
 
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ExclamationTriangleIcon } from '@heroicons/react/24/outline';
 import { useReviewQueue } from '../hooks/useApi';

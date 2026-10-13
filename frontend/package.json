@@ -31,7 +31,10 @@
     "react-hot-toast": "^2.4.1",
     "lucide-react": "^0.292.0",
     "clsx": "^2.0.0",
-    "tailwind-merge": "^2.0.0"
+    "tailwind-merge": "^2.0.0",
+    "@heroicons/react": "^2.2.0",
+    "date-fns": "^3.6.0",
+    "@tanstack/react-query": "^5.104.2"
   },
   "devDependencies": {
     "@types/react": "^18.2.37",
@@ -61,4 +64,4 @@
     "node": ">=18.0.0",
     "npm": ">=9.0.0"
   }
-} 
+}

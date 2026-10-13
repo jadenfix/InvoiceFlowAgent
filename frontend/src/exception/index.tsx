@@ -3,7 +3,6 @@
  * Main entry point for the exception review functionality
  */
 
-import React from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { QueuePage } from './pages/QueuePage';

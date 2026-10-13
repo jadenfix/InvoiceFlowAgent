@@ -2,7 +2,7 @@
  * Review Form Component for approving/rejecting invoices
  */
 
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { CheckCircleIcon, XCircleIcon } from '@heroicons/react/24/outline';
 import { ApproveRequest, RejectRequest, ReviewFormData } from '../types';
 
@@ -16,7 +16,6 @@ interface ReviewFormProps {
 }
 
 export function ReviewForm({
-  invoiceId,
   isApproving,
   isRejecting,
   onApprove,
