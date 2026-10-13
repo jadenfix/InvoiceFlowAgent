@@ -3,11 +3,10 @@
 from datetime import datetime
 from decimal import Decimal
 from typing import AsyncGenerator
-from sqlalchemy import String, DateTime, Numeric, Text
+from sqlalchemy import String, DateTime, Numeric, Text, Uuid
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 from contextlib import asynccontextmanager
-from sqlalchemy.dialects.postgresql import UUID
 import uuid
 
 from ..core.config import settings
@@ -39,7 +38,7 @@ class Invoice(Base):
     __tablename__ = "invoices"
 
     # Primary key
-    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
 
     # Core invoice data
     vendor_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
