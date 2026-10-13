@@ -3,7 +3,13 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
  * Unit tests for QueueTable component
  */
 
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import {
+  render,
+  screen,
+  fireEvent,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { QueueTable } from "../QueueTable";
 import { InvoiceQueueItem, QueueFilters } from "../../types";
 
@@ -211,8 +217,14 @@ describe("QueueTable", () => {
   it("formats dates correctly", () => {
     render(<QueueTable {...defaultProps} />);
 
-    expect(screen.getByText("Jan 15, 2024")).toBeInTheDocument();
-    expect(screen.getAllByText("Jan 14, 2024")).toHaveLength(2);
+    const acmeRow = screen.getByRole("row", { name: /Acme Corp/ });
+    const techRow = screen.getByRole("row", { name: /Tech Solutions Inc/ });
+    expect(within(acmeRow).getAllByRole("cell")[3]).toHaveTextContent(
+      "Jan 15, 2024",
+    );
+    expect(within(techRow).getAllByRole("cell")[3]).toHaveTextContent(
+      "Jan 14, 2024",
+    );
   });
 
   it("handles missing data gracefully", () => {

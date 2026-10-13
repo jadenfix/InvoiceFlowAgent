@@ -3,7 +3,7 @@
  */
 
 import { useState } from "react";
-import { format } from "date-fns";
+import { format, parseISO } from "date-fns";
 import {
   ChevronUpIcon,
   ChevronDownIcon,
@@ -72,10 +72,14 @@ export function QueueTable({
     }).format(amount);
   };
 
-  const formatDate = (dateString?: string) => {
+  const formatDate = (dateString?: string, calendarDate = false) => {
     if (!dateString) return "-";
     try {
-      return format(new Date(dateString), "MMM dd, yyyy");
+      // An invoice date is a calendar day, not a timestamp in the viewer's timezone.
+      const date = calendarDate
+        ? parseISO(dateString.slice(0, 10))
+        : new Date(dateString);
+      return format(date, "MMM dd, yyyy");
     } catch {
       return "-";
     }
@@ -349,7 +353,7 @@ export function QueueTable({
                     {formatAmount(item.total_amount)}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {formatDate(item.invoice_date)}
+                    {formatDate(item.invoice_date, true)}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                     <span
