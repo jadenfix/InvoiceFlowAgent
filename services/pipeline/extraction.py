@@ -2,6 +2,7 @@
 
 import io
 import re
+from datetime import date
 from decimal import Decimal, InvalidOperation
 
 from pypdf import PdfReader
@@ -41,7 +42,14 @@ def extract_fields(content: bytes) -> dict:
     except InvalidOperation as error:
         raise ValueError("Invalid total amount") from error
     currency = field(r"^\s*Currency\s*:\s*([A-Z]{3})\s*$", True).upper()
+    invoice_date = field(r"^\s*(?:Invoice Date|Date)\s*:\s*(\S+)\s*$")
+    if invoice_date:
+        try:
+            invoice_date = date.fromisoformat(invoice_date).isoformat()
+        except ValueError as error:
+            raise ValueError("Invoice date must be ISO YYYY-MM-DD") from error
     return {
+        "invoice_date": invoice_date,
         "vendor_name": field(r"^\s*Vendor\s*:\s*(.+)$", True),
         "invoice_number": field(r"^\s*Invoice(?: Number| #|#)?\s*:\s*(\S+)\s*$", True),
         "total_amount": str(amount),

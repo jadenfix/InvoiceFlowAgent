@@ -92,22 +92,28 @@ class Pipeline:
         self.channel = None
         self.tasks = []
         self.consumer_ready = False
+        self.queue_lock = asyncio.Lock()
 
     async def connect_queue(self):
-        if (
-            self.connection
-            and not self.connection.is_closed
-            and self.channel
-            and not self.channel.is_closed
-        ):
-            return
-        self.connection = await aio_pika.connect_robust(
-            os.getenv("RABBITMQ_URL", "amqp://guest:guest@127.0.0.1/"), timeout=10
-        )
-        self.channel = await self.connection.channel(publisher_confirms=True)
-        await self.channel.set_qos(prefetch_count=1)
-        for stage in ("extract", "match"):
-            await self.channel.declare_queue(f"pipeline_{stage}", durable=True)
+        async with self.queue_lock:
+            if self.connection and not self.connection.is_closed:
+                # A robust connection remains logically open during broker outages.
+                # Wait for its real transport; do not replace it and strand consumers.
+                await asyncio.wait_for(self.connection.connected.wait(), timeout=3)
+                if self.channel:
+                    await asyncio.wait_for(self.channel.ready(), timeout=3)
+                    return
+            else:
+                self.connection = await aio_pika.connect_robust(
+                    os.getenv(
+                        "RABBITMQ_URL", "amqp://testuser:testpassword@127.0.0.1/"
+                    ),
+                    timeout=3,
+                )
+            self.channel = await self.connection.channel(publisher_confirms=True)
+            await self.channel.set_qos(prefetch_count=1)
+            for stage in ("extract", "match"):
+                await self.channel.declare_queue(f"pipeline_{stage}", durable=True)
 
     async def start(self, role):
         self.pool = await asyncpg.create_pool(
@@ -127,7 +133,7 @@ class Pipeline:
             try:
                 await self.connect_queue()
                 break
-            except (OSError, aio_pika.exceptions.AMQPException):
+            except (OSError, aio_pika.exceptions.AMQPException, asyncio.TimeoutError):
                 if attempt == 29:
                     await self.pool.close()
                     raise
@@ -373,6 +379,7 @@ def create_app(role=None):
             "id": str(row["id"]),
             "vendor_name": fields["vendor_name"],
             "invoice_number": fields["invoice_number"],
+            "invoice_date": fields.get("invoice_date"),
             "total_amount": float(fields["total_amount"]),
             "matched_status": match["matched_status"],
             "created_at": row["created_at"],
@@ -394,6 +401,7 @@ def create_app(role=None):
             "created_at": "created_at",
             "vendor_name": "fields->>'vendor_name'",
             "invoice_number": "fields->>'invoice_number'",
+            "invoice_date": "fields->>'invoice_date'",
             "total_amount": "(fields->>'total_amount')::numeric",
         }
         if sort_by not in sorts or sort_order not in ("asc", "desc"):
@@ -408,8 +416,8 @@ def create_app(role=None):
         args = []
         for value, clause in [
             (vendor_filter, "fields->>'vendor_name' ILIKE '%' || ${n} || '%'"),
-            (date_from, "created_at::date>=${n}"),
-            (date_to, "created_at::date<=${n}"),
+            (date_from, "(fields->>'invoice_date')::date>=${n}"),
+            (date_to, "(fields->>'invoice_date')::date<=${n}"),
         ]:
             if value is not None:
                 args.append(value)
@@ -451,6 +459,7 @@ def create_app(role=None):
                 "extracted_vendor": fields["vendor_name"],
                 "extracted_amount": float(fields["total_amount"]),
                 "extracted_invoice_number": fields["invoice_number"],
+                "extracted_date": fields.get("invoice_date"),
                 "file_path": f"/api/v1/review/{invoice_id}/document",
                 "file_type": "pdf",
                 "match_details": row["match_result"],
@@ -538,10 +547,17 @@ def create_app(role=None):
             await pipeline.pool.fetchval("SELECT 1")
             if (
                 not pipeline.connection
-                or pipeline.connection.is_closed
+                or not pipeline.connection.connected.is_set()
+                or not pipeline.channel
                 or (role != "ingest" and not pipeline.consumer_ready)
             ):
                 raise RuntimeError("Queue not ready")
+            await asyncio.wait_for(
+                pipeline.channel.declare_queue(
+                    "pipeline_extract", durable=True, passive=True
+                ),
+                timeout=2,
+            )
             return {
                 "status": "ready",
                 "database": "postgresql",
