@@ -62,11 +62,13 @@ locals {
 
 # VPC Module
 module "vpc" {
-  source = "../../modules/vpc"
+  depends_on = [module.s3]
+  source     = "../../modules/vpc"
 
-  project_name = var.project_name
-  environment  = var.environment
-  vpc_cidr     = var.vpc_cidr
+  project_name         = var.project_name
+  environment          = var.environment
+  vpc_cidr             = var.vpc_cidr
+  flow_log_destination = module.s3.flow_log_destination
 
   availability_zones = slice(data.aws_availability_zones.available.names, 0, 3)
 
@@ -83,7 +85,8 @@ module "eks" {
   vpc_id     = module.vpc.vpc_id
   subnet_ids = module.vpc.private_subnet_ids
 
-  node_groups = var.eks_node_groups
+  node_groups       = var.eks_node_groups
+  s3_prefix_list_id = module.vpc.s3_endpoint_prefix_list_id
 
   tags = local.common_tags
 
@@ -128,28 +131,32 @@ module "s3" {
 
 # Security Groups
 resource "aws_security_group" "application_load_balancer" {
+  description = "Trusted clients to application HTTPS and HTTP redirect"
   name_prefix = "${var.project_name}-${var.environment}-alb-"
   vpc_id      = module.vpc.vpc_id
 
   ingress {
+    description = "HTTP redirect from explicitly trusted clients"
     from_port   = 80
     to_port     = 80
     protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
+    cidr_blocks = var.allowed_ingress_cidrs
   }
 
   ingress {
+    description = "HTTPS from explicitly trusted clients"
     from_port   = 443
     to_port     = 443
     protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
+    cidr_blocks = var.allowed_ingress_cidrs
   }
 
   egress {
+    description = "Application targets inside the VPC"
     from_port   = 0
     to_port     = 0
     protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
+    cidr_blocks = [var.vpc_cidr]
   }
 
   tags = merge(local.common_tags, {
@@ -157,17 +164,26 @@ resource "aws_security_group" "application_load_balancer" {
   })
 }
 
+module "application_log_key" {
+  source           = "../../modules/cloudwatch_key"
+  name             = "${var.project_name}-${var.environment}-application"
+  log_group_prefix = "/aws/invoiceflow/${var.environment}/"
+  tags             = local.common_tags
+}
+
 # CloudWatch Log Groups
 resource "aws_cloudwatch_log_group" "application_logs" {
   name              = "/aws/invoiceflow/${var.environment}/application"
-  retention_in_days = 30
+  retention_in_days = 365
+  kms_key_id        = module.application_log_key.key_arn
 
   tags = local.common_tags
 }
 
 resource "aws_cloudwatch_log_group" "infrastructure_logs" {
   name              = "/aws/invoiceflow/${var.environment}/infrastructure"
-  retention_in_days = 30
+  retention_in_days = 365
+  kms_key_id        = module.application_log_key.key_arn
 
   tags = local.common_tags
 } 

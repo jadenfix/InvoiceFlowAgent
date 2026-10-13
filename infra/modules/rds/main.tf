@@ -22,6 +22,7 @@ resource "random_password" "master" {
 
 # Store password in AWS Secrets Manager
 resource "aws_secretsmanager_secret" "rds_password" {
+  kms_key_id              = aws_kms_key.rds.arn
   name                    = "${var.project_name}-${var.environment}-rds-master-password"
   description             = "Master password for RDS cluster"
   recovery_window_in_days = 7
@@ -49,6 +50,7 @@ resource "aws_db_subnet_group" "main" {
 
 # Security Group for RDS
 resource "aws_security_group" "rds" {
+  description = "PostgreSQL access limited to application VPC workloads"
   name_prefix = "${var.project_name}-${var.environment}-rds-"
   vpc_id      = var.vpc_id
 
@@ -64,8 +66,8 @@ resource "aws_security_group" "rds" {
     from_port   = 0
     to_port     = 0
     protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-    description = "All outbound traffic"
+    cidr_blocks = [data.aws_vpc.main.cidr_block]
+    description = "Database traffic limited to the VPC"
   }
 
   tags = merge(var.tags, {
@@ -172,9 +174,10 @@ resource "aws_rds_cluster_instance" "cluster_instances" {
 
   db_parameter_group_name = aws_db_parameter_group.main.name
 
-  performance_insights_enabled = true
-  monitoring_interval          = 60
-  monitoring_role_arn          = aws_iam_role.rds_enhanced_monitoring.arn
+  performance_insights_enabled    = true
+  performance_insights_kms_key_id = aws_kms_key.rds.arn
+  monitoring_interval             = 60
+  monitoring_role_arn             = aws_iam_role.rds_enhanced_monitoring.arn
 
   tags = merge(var.tags, {
     Name = "${var.project_name}-${var.environment}-aurora-instance-${count.index}"
@@ -206,10 +209,18 @@ resource "aws_iam_role_policy_attachment" "rds_enhanced_monitoring" {
   policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonRDSEnhancedMonitoringRole"
 }
 
+module "database_log_key" {
+  source           = "../cloudwatch_key"
+  name             = "${var.project_name}-${var.environment}-database"
+  log_group_prefix = "/aws/rds/cluster/"
+  tags             = var.tags
+}
+
 # CloudWatch Log Group
 resource "aws_cloudwatch_log_group" "rds" {
   name              = "/aws/rds/cluster/${aws_rds_cluster.main.cluster_identifier}/postgresql"
-  retention_in_days = 30
+  retention_in_days = 365
+  kms_key_id        = module.database_log_key.key_arn
 
   tags = var.tags
 }

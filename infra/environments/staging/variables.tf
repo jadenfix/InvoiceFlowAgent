@@ -183,4 +183,12 @@ variable "enable_config" {
   description = "Enable AWS Config for compliance monitoring"
   type        = bool
   default     = true # Enable for staging to test compliance
-} 
+}
+variable "allowed_ingress_cidrs" {
+  description = "Explicit trusted IPv4 client CIDRs for application HTTPS and HTTP redirects; required before deployment"
+  type        = list(string)
+  validation {
+    condition     = length(var.allowed_ingress_cidrs) > 0 && alltrue([for cidr in var.allowed_ingress_cidrs : can(cidrnetmask(cidr)) && cidr != "0.0.0.0/0"])
+    error_message = "Supply trusted IPv4 client CIDRs; unrestricted 0.0.0.0/0 is not allowed."
+  }
+}

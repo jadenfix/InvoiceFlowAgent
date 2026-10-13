@@ -51,4 +51,5 @@ output "kms_key_id" {
 output "cloudtrail_arn" {
   description = "ARN of the CloudTrail for S3 access logging"
   value       = aws_cloudtrail.s3_access.arn
-} 
+}
+output "flow_log_destination" { value = "${aws_s3_bucket.logs.arn}/vpc-flow/" }

@@ -45,8 +45,8 @@ resource "aws_eks_cluster" "main" {
   vpc_config {
     subnet_ids              = var.subnet_ids
     endpoint_private_access = true
-    endpoint_public_access  = true
-    public_access_cidrs     = ["0.0.0.0/0"]
+    endpoint_public_access  = false
+    public_access_cidrs     = []
   }
 
   # Enable logging
@@ -182,6 +182,11 @@ resource "aws_eks_node_group" "main" {
 
 # Launch template for node groups
 resource "aws_launch_template" "node_group" {
+  metadata_options {
+    http_endpoint               = "enabled"
+    http_tokens                 = "required"
+    http_put_response_hop_limit = 1
+  }
   for_each = var.node_groups
 
   name_prefix   = "${var.cluster_name}-${each.key}-"
@@ -210,15 +215,27 @@ resource "aws_launch_template" "node_group" {
 }
 
 # Security group for node groups
+data "aws_vpc" "main" { id = var.vpc_id }
+
 resource "aws_security_group" "node_group" {
+  description = "Private EKS node and AWS endpoint traffic"
   name_prefix = "${var.cluster_name}-node-group-"
   vpc_id      = var.vpc_id
 
   egress {
+    description = "Private cluster and interface endpoints"
     from_port   = 0
     to_port     = 0
     protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
+    cidr_blocks = [data.aws_vpc.main.cidr_block]
+  }
+
+  egress {
+    description     = "S3 artifact access through the VPC gateway endpoint"
+    from_port       = 443
+    to_port         = 443
+    protocol        = "tcp"
+    prefix_list_ids = [var.s3_prefix_list_id]
   }
 
   tags = merge(var.tags, {

@@ -41,4 +41,8 @@ variable "tags" {
   description = "A map of tags to assign to the resource"
   type        = map(string)
   default     = {}
-} 
+}
+variable "s3_prefix_list_id" {
+  description = "Actual S3 gateway endpoint prefix list for artifact access"
+  type        = string
+}
