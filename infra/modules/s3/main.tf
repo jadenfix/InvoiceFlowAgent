@@ -23,7 +23,7 @@ resource "aws_kms_key" "s3" {
     Version = "2012-10-17"
     Statement = [
       { Sid = "EnableAccountIAM", Effect = "Allow", Principal = { AWS = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:root" }, Action = "kms:*", Resource = "*" },
-      { Sid = "CloudTrailEncryption", Effect = "Allow", Principal = { Service = "cloudtrail.amazonaws.com" }, Action = ["kms:GenerateDataKey*", "kms:DescribeKey"], Resource = "*", Condition = { StringEquals = { "aws:SourceArn" = "arn:aws:cloudtrail:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:trail/${var.project_name}-${var.environment}-s3-cloudtrail" } } },
+      { Sid = "CloudTrailEncryption", Effect = "Allow", Principal = { Service = "cloudtrail.amazonaws.com" }, Action = ["kms:GenerateDataKey*", "kms:DescribeKey", "kms:Decrypt"], Resource = "*", Condition = { StringEquals = { "aws:SourceArn" = "arn:aws:cloudtrail:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:trail/${var.project_name}-${var.environment}-s3-cloudtrail" } } },
       { Sid = "FlowLogDeliveryEncryption", Effect = "Allow", Principal = { Service = "delivery.logs.amazonaws.com" }, Action = ["kms:GenerateDataKey*", "kms:Decrypt"], Resource = "*", Condition = { StringEquals = { "aws:SourceAccount" = data.aws_caller_identity.current.account_id }, StringLike = { "kms:EncryptionContext:aws:s3:arn" = "${aws_s3_bucket.logs.arn}/*" } } }
     ]
   })
@@ -82,6 +82,7 @@ resource "aws_s3_bucket_lifecycle_configuration" "invoices" {
   rule {
     id     = "invoice_lifecycle"
     status = "Enabled"
+    abort_incomplete_multipart_upload { days_after_initiation = 7 }
 
     transition {
       days          = 30
@@ -184,6 +185,7 @@ resource "aws_s3_bucket_lifecycle_configuration" "logs" {
   rule {
     id     = "logs_lifecycle"
     status = "Enabled"
+    abort_incomplete_multipart_upload { days_after_initiation = 7 }
 
     transition {
       days          = 30
@@ -245,6 +247,7 @@ resource "aws_s3_bucket_lifecycle_configuration" "backups" {
   rule {
     id     = "backups_lifecycle"
     status = "Enabled"
+    abort_incomplete_multipart_upload { days_after_initiation = 7 }
 
     transition {
       days          = 30
@@ -280,6 +283,7 @@ resource "aws_cloudtrail" "s3_access" {
   include_global_service_events = true
   cloud_watch_logs_group_arn    = "${aws_cloudwatch_log_group.cloudtrail.arn}:*"
   cloud_watch_logs_role_arn     = aws_iam_role.cloudtrail_logs.arn
+  sns_topic_name                = aws_sns_topic.cloudtrail.name
   name                          = "${var.project_name}-${var.environment}-s3-cloudtrail"
   s3_bucket_name                = aws_s3_bucket.logs.bucket
   s3_key_prefix                 = "cloudtrail/"
@@ -291,7 +295,7 @@ resource "aws_cloudtrail" "s3_access" {
 
     data_resource {
       type   = "AWS::S3::Object"
-      values = ["${aws_s3_bucket.invoices.arn}/*", "${aws_s3_bucket.processed_invoices.arn}/*", "${aws_s3_bucket.backups.arn}/*"]
+      values = ["${aws_s3_bucket.invoices.arn}/", "${aws_s3_bucket.processed_invoices.arn}/", "${aws_s3_bucket.backups.arn}/"]
     }
   }
 
@@ -303,13 +307,13 @@ resource "aws_cloudtrail" "s3_access" {
     include_management_events = false
     data_resource {
       type   = "AWS::S3::Object"
-      values = ["${aws_s3_bucket.logs.arn}/*", "${aws_s3_bucket.access_log_sink.arn}/*"]
+      values = concat(["${aws_s3_bucket.logs.arn}/", "${aws_s3_bucket.access_log_sink.arn}/"], var.extra_audit_bucket_arns)
     }
   }
 
   tags = var.tags
 
-  depends_on = [aws_s3_bucket_policy.cloudtrail_logs, aws_iam_role_policy.cloudtrail_logs]
+  depends_on = [aws_s3_bucket_policy.cloudtrail_logs, aws_iam_role_policy.cloudtrail_logs, aws_sns_topic_policy.cloudtrail]
 }
 
 # S3 bucket policy for CloudTrail
@@ -402,6 +406,7 @@ resource "aws_iam_role_policy" "cloudtrail_logs" {
 # Exceptions apply ONLY to this sink; all source buckets use CMKs and send server access logs here.
 #tfsec:ignore:aws-s3-enable-bucket-logging
 resource "aws_s3_bucket" "access_log_sink" {
+  #checkov:skip=CKV_AWS_145:AWS S3 and ALB access-log destinations require SSE-S3; source buckets remain KMS encrypted.
   bucket = "${var.project_name}-${var.environment}-access-logs-${data.aws_caller_identity.current.account_id}"
   tags   = var.tags
 }
@@ -429,6 +434,7 @@ resource "aws_s3_bucket_lifecycle_configuration" "access_log_sink" {
   rule {
     id     = "access-log-retention"
     status = "Enabled"
+    abort_incomplete_multipart_upload { days_after_initiation = 7 }
     expiration { days = 365 }
     noncurrent_version_expiration { noncurrent_days = 365 }
   }
@@ -474,7 +480,53 @@ resource "aws_s3_bucket_policy" "access_log_sink" {
     Version = "2012-10-17"
     Statement = [
       { Sid = "TLSOnly", Effect = "Deny", Principal = "*", Action = "s3:*", Resource = [aws_s3_bucket.access_log_sink.arn, "${aws_s3_bucket.access_log_sink.arn}/*"], Condition = { Bool = { "aws:SecureTransport" = "false" } } },
+      { Sid = "ALBLogDelivery", Effect = "Allow", Principal = { Service = "logdelivery.elasticloadbalancing.amazonaws.com" }, Action = "s3:PutObject", Resource = "${aws_s3_bucket.access_log_sink.arn}/alb/AWSLogs/${data.aws_caller_identity.current.account_id}/*", Condition = { ArnLike = { "aws:SourceArn" = "arn:aws:elasticloadbalancing:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:loadbalancer/*" } } },
       { Sid = "ScopedLogDelivery", Effect = "Allow", Principal = { Service = "logging.s3.amazonaws.com" }, Action = "s3:PutObject", Resource = "${aws_s3_bucket.access_log_sink.arn}/*", Condition = { StringEquals = { "aws:SourceAccount" = data.aws_caller_identity.current.account_id }, ArnLike = { "aws:SourceArn" = [for bucket in local.audited_buckets : bucket.arn] } } }
     ]
   })
+}
+
+resource "aws_s3_bucket_lifecycle_configuration" "processed_invoices" {
+  bucket = aws_s3_bucket.processed_invoices.id
+  rule {
+    id     = "processed_invoice_retention"
+    status = "Enabled"
+    abort_incomplete_multipart_upload { days_after_initiation = 7 }
+    noncurrent_version_expiration { noncurrent_days = 365 }
+  }
+}
+
+resource "aws_s3_bucket_notification" "invoices" {
+  bucket      = aws_s3_bucket.invoices.id
+  eventbridge = true
+}
+
+resource "aws_s3_bucket_notification" "processed_invoices" {
+  bucket      = aws_s3_bucket.processed_invoices.id
+  eventbridge = true
+}
+
+resource "aws_s3_bucket_notification" "logs" {
+  bucket      = aws_s3_bucket.logs.id
+  eventbridge = true
+}
+
+resource "aws_s3_bucket_notification" "backups" {
+  bucket      = aws_s3_bucket.backups.id
+  eventbridge = true
+}
+
+resource "aws_s3_bucket_notification" "access_log_sink" {
+  bucket      = aws_s3_bucket.access_log_sink.id
+  eventbridge = true
+}
+
+resource "aws_sns_topic" "cloudtrail" {
+  name              = "${var.project_name}-${var.environment}-cloudtrail-delivery"
+  kms_master_key_id = aws_kms_key.s3.arn
+  tags              = var.tags
+}
+resource "aws_sns_topic_policy" "cloudtrail" {
+  arn    = aws_sns_topic.cloudtrail.arn
+  policy = jsonencode({ Version = "2012-10-17", Statement = [{ Sid = "CloudTrailDelivery", Effect = "Allow", Principal = { Service = "cloudtrail.amazonaws.com" }, Action = "SNS:Publish", Resource = aws_sns_topic.cloudtrail.arn, Condition = { StringEquals = { "aws:SourceArn" = "arn:aws:cloudtrail:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:trail/${var.project_name}-${var.environment}-s3-cloudtrail" } } }] })
 }

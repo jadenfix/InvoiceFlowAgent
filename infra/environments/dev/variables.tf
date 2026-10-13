@@ -30,7 +30,7 @@ variable "vpc_cidr" {
 variable "eks_cluster_version" {
   description = "Kubernetes version to use for the EKS cluster"
   type        = string
-  default     = "1.28"
+  default     = "1.35"
 }
 
 variable "eks_node_groups" {
@@ -82,13 +82,13 @@ variable "eks_node_groups" {
 variable "rds_engine_version" {
   description = "PostgreSQL engine version"
   type        = string
-  default     = "15.4"
+  default     = "15.18"
 }
 
 variable "rds_instance_class" {
   description = "RDS instance class"
   type        = string
-  default     = "db.t3.micro"
+  default     = "db.t4g.medium"
 }
 
 variable "rds_allocated_storage" {
@@ -185,10 +185,45 @@ variable "enable_config" {
   default     = false # Disabled in dev for cost optimization
 }
 variable "allowed_ingress_cidrs" {
-  description = "Explicit trusted IPv4 client CIDRs for application HTTPS and HTTP redirects; required before deployment"
+  description = "Explicit trusted IPv4 client CIDRs for application HTTPS; required before deployment"
   type        = list(string)
   validation {
     condition     = length(var.allowed_ingress_cidrs) > 0 && alltrue([for cidr in var.allowed_ingress_cidrs : can(cidrnetmask(cidr)) && cidr != "0.0.0.0/0"])
     error_message = "Supply trusted IPv4 client CIDRs; unrestricted 0.0.0.0/0 is not allowed."
+  }
+}
+
+variable "availability_zones" {
+  description = "Explicit stable AZ names for deployment; choose actual AZs in aws_region before planning"
+  type        = list(string)
+  validation {
+    condition     = length(var.availability_zones) >= 2 && length(distinct(var.availability_zones)) == length(var.availability_zones)
+    error_message = "Supply at least two distinct actual availability zone names."
+  }
+}
+
+variable "application_certificate_arn" {
+  description = "Actual issued ACM certificate in aws_region covering the application hostname"
+  type        = string
+  validation {
+    condition     = can(regex("^arn:aws:acm:[a-z0-9-]+:[0-9]{12}:certificate/[a-zA-Z0-9-]+$", var.application_certificate_arn))
+    error_message = "Provide a real issued ACM certificate ARN, not a placeholder."
+  }
+}
+variable "application_tls_node_port" {
+  description = "Actual TLS NodePort served by the deployed application gateway on EKS nodes"
+  type        = number
+  validation {
+    condition     = var.application_tls_node_port >= 30000 && var.application_tls_node_port <= 32767 && floor(var.application_tls_node_port) == var.application_tls_node_port
+    error_message = "Provide the deployed gateway TLS NodePort (30000-32767)."
+  }
+}
+
+variable "dr_region" {
+  description = "Actual secondary region for recovery; required, distinct from aws_region and in the same account"
+  type        = string
+  validation {
+    condition     = var.dr_region != var.aws_region
+    error_message = "Choose an actual recovery region different from the primary region."
   }
 }

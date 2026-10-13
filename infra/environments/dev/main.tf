@@ -43,9 +43,7 @@ provider "aws" {
 }
 
 # Data sources
-data "aws_availability_zones" "available" {
-  state = "available"
-}
+
 
 data "aws_caller_identity" "current" {}
 
@@ -70,7 +68,7 @@ module "vpc" {
   vpc_cidr             = var.vpc_cidr
   flow_log_destination = module.s3.flow_log_destination
 
-  availability_zones = slice(data.aws_availability_zones.available.names, 0, 3)
+  availability_zones = var.availability_zones
 
   tags = local.common_tags
 }
@@ -121,7 +119,8 @@ module "rds" {
 
 # S3 Module
 module "s3" {
-  source = "../../modules/s3"
+  extra_audit_bucket_arns = local.dr_readonly_audit_arns
+  source                  = "../../modules/s3"
 
   project_name = var.project_name
   environment  = var.environment
@@ -131,17 +130,10 @@ module "s3" {
 
 # Security Groups
 resource "aws_security_group" "application_load_balancer" {
-  description = "Trusted clients to application HTTPS and HTTP redirect"
+  description = "Trusted clients to application HTTPS"
   name_prefix = "${var.project_name}-${var.environment}-alb-"
   vpc_id      = module.vpc.vpc_id
 
-  ingress {
-    description = "HTTP redirect from explicitly trusted clients"
-    from_port   = 80
-    to_port     = 80
-    protocol    = "tcp"
-    cidr_blocks = var.allowed_ingress_cidrs
-  }
 
   ingress {
     description = "HTTPS from explicitly trusted clients"
@@ -186,4 +178,27 @@ resource "aws_cloudwatch_log_group" "infrastructure_logs" {
   kms_key_id        = module.application_log_key.key_arn
 
   tags = local.common_tags
-} 
+}
+provider "aws" {
+  alias  = "dr"
+  region = var.dr_region
+  default_tags { tags = local.common_tags }
+}
+module "s3_replication" {
+  source         = "../../modules/s3_replication"
+  providers      = { aws.primary = aws, aws.dr = aws.dr }
+  project_name   = var.project_name
+  environment    = var.environment
+  source_buckets = module.s3.replication_sources
+  tags           = local.common_tags
+  depends_on     = [module.s3]
+}
+
+locals {
+  dr_prefix               = "${substr(lower(var.project_name), 0, 12)}-${substr(lower(var.environment), 0, 8)}"
+  dr_access_replica_name  = "${local.dr_prefix}-dr-access-logs-${substr(sha256("${data.aws_caller_identity.current.account_id}:${var.dr_region}:${var.project_name}:${var.environment}:access_logs"), 0, 12)}"
+  dr_access_delivery_name = "${local.dr_prefix}-dr-access-${substr(sha256("${data.aws_caller_identity.current.account_id}:${var.dr_region}:${var.project_name}:${var.environment}:access-delivery"), 0, 12)}"
+  # This repository uses the standard AWS partition. If supporting another
+  # partition, use data.aws_partition.current.partition in root and module.
+  dr_readonly_audit_arns = ["arn:aws:s3:::${local.dr_access_replica_name}/", "arn:aws:s3:::${local.dr_access_delivery_name}/"]
+}

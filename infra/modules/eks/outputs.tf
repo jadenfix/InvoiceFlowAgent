@@ -94,4 +94,8 @@ output "kms_key_arn" {
 output "kms_key_id" {
   description = "The globally unique identifier for the key used for EKS secret encryption"
   value       = aws_kms_key.eks.key_id
-} 
+}
+output "node_autoscaling_groups" {
+  description = "Managed node ASGs for automatic gateway target registration"
+  value       = { for name, group in aws_eks_node_group.main : name => group.resources[0].autoscaling_groups[0].name }
+}

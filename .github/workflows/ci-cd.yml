@@ -18,6 +18,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
@@ -48,6 +50,9 @@ jobs:
         with:
           directory: infra/
           framework: terraform
+          skip_download: true
+          skip_results_upload: true
+          download_external_modules: false
 
   # Security scanning
   security-scan:

@@ -235,3 +235,9 @@ resource "aws_vpc_endpoint" "node_services" {
   private_dns_enabled = true
   tags                = var.tags
 }
+
+# Adopt and close the AWS-created default group; application groups remain explicit.
+resource "aws_default_security_group" "restricted" {
+  vpc_id = aws_vpc.main.id
+  tags   = var.tags
+}
