@@ -1,0 +1,62 @@
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: invoiceflow_test
+      POSTGRES_USER: testuser
+      POSTGRES_PASSWORD: testpassword
+    ports: ['127.0.0.1:5432:5432']
+    volumes: [pipeline_postgres:/var/lib/postgresql/data]
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U testuser -d invoiceflow_test']
+      interval: 2s
+      timeout: 5s
+      retries: 30
+  rabbitmq:
+    image: rabbitmq:3.13-management
+    environment:
+      RABBITMQ_DEFAULT_USER: testuser
+      RABBITMQ_DEFAULT_PASS: testpassword
+    ports: ['127.0.0.1:5672:5672']
+    volumes: [pipeline_rabbitmq:/var/lib/rabbitmq]
+    healthcheck:
+      test: ['CMD', 'rabbitmq-diagnostics', '-q', 'ping']
+      interval: 5s
+      timeout: 10s
+      retries: 30
+  ingest:
+    build: &build
+      context: .
+      dockerfile: services/pipeline/Dockerfile
+    environment: &env
+      DATABASE_URL: postgresql://testuser:testpassword@postgres:5432/invoiceflow_test
+      RABBITMQ_URL: amqp://testuser:testpassword@rabbitmq:5672/
+      PIPELINE_ROLE: ingest
+    ports: ['127.0.0.1:8003:8000']
+    depends_on: &deps
+      postgres: {condition: service_healthy}
+      rabbitmq: {condition: service_healthy}
+    healthcheck: &health
+      test: ['CMD', 'python', '-c', 'import urllib.request; urllib.request.urlopen("http://localhost:8000/health/ready")']
+      interval: 3s
+      timeout: 5s
+      retries: 30
+  extract:
+    build: *build
+    environment:
+      <<: *env
+      PIPELINE_ROLE: extract
+    ports: ['127.0.0.1:8004:8000']
+    depends_on: *deps
+    healthcheck: *health
+  match:
+    build: *build
+    environment:
+      <<: *env
+      PIPELINE_ROLE: match
+    ports: ['127.0.0.1:8005:8000']
+    depends_on: *deps
+    healthcheck: *health
+volumes:
+  pipeline_postgres:
+  pipeline_rabbitmq:

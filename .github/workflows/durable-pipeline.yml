@@ -1,0 +1,24 @@
+name: Durable PDF pipeline
+on: [push, pull_request]
+jobs:
+  pdf-queue-postgres-e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install -r services/pipeline/requirements.txt
+      - run: python -m pytest tests/pipeline -q
+      - run: docker compose -f docker-compose.pipeline.yml up -d --build --wait --wait-timeout 240
+      - run: python scripts/check_pipeline_http.py
+      - if: always()
+        run: docker compose -f docker-compose.pipeline.yml logs --no-color > pipeline-e2e.log
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: real-pipeline-log
+          path: pipeline-e2e.log
+      - if: always()
+        run: docker compose -f docker-compose.pipeline.yml down

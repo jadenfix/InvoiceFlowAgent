@@ -1,3 +1,47 @@
+## Runnable durable invoice workflow
+
+```bash
+bash scripts/run_pipeline_demo.sh
+```
+
+Requires Docker Compose v2 and Python 3.11+. The canonical local stack uses actual
+PostgreSQL and RabbitMQ with durable volumes, plus three API/worker roles. Uploads
+are stored as actual PDF bytes and accepted work enters a transactional outbox.
+Workers extract embedded text, match purchase orders using the existing 2% decimal
+variance rule, and persist results. Outbox retries and idempotent workers preserve
+work through broker outages and duplicate delivery.
+
+This local extractor reads real **text PDFs** using pypdf. It accepts labeled
+`Vendor:`, `Invoice #:`, `Total Amount:`, `Currency:` and optional `PO Number:`
+lines. Scanned, malformed, ambiguous, or missing-field documents fail explicitly;
+this is a deterministic text extractor, not a validated OCR/LLM provider or a claim
+of general invoice extraction accuracy. No paid provider calls are made.
+
+The ingest API at http://127.0.0.1:8003 provides:
+
+- `POST /api/v1/purchase-orders` with `po_number`, positive `amount`, `currency`.
+- `POST /api/v1/ingest/upload` with multipart PDF `file` (max10MB).
+- `GET /api/v1/ingest/status/{request_id}` and `/api/v1/ingest/stats` read real data.
+- `POST /auth/register`, `/auth/login`, `/auth/logout`, `GET /auth/me`: actual local
+  registration/authentication with PBKDF2 hashes and persisted expiring sessions.
+- Bearer-authenticated `/api/v1/review/queue`, `/api/v1/review/{id}`,
+  `/api/v1/review/{id}/document`, and POST `/{id}/approve` or `/{id}/reject`.
+  Reviewer identity comes from the session; duplicate decisions return409.
+
+The local stack's ports bind to loopback. It is a single-team local review lane;
+public deployment needs tenancy, registration policy and request rate limits.
+Frontend development: set `VITE_AUTH_SERVICE_URL` and `VITE_EXCEPTION_API_URL` to
+`http://127.0.0.1:8003`, then run the frontend's normal Vite development command.
+
+`Durable PDF pipeline` CI executes actual HTTP→PDF→queue→Postgres tests, including
+approval/rejection, authentication errors, missing/invalid documents, amount and
+currency mismatches, duplicate delivery, stopped workers, stopped broker, and
+application/database restart persistence. Source revision and CI receipts gate
+recording. The older cloud/service scaffold instructions below describe separate
+integrations and do not establish live OCR/LLM, S3, billing or ERP readiness.
+
+---
+
 # Invoice Processing System
 
 A production-grade microservices architecture for automated invoice processing using FastAPI, PostgreSQL, OpenSearch, and RabbitMQ.
