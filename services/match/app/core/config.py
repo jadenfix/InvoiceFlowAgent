@@ -1,8 +1,7 @@
 """Configuration settings for the matching service."""
 
 from decimal import Decimal
-from pydantic import validator
-from pydantic_settings import BaseSettings
+from pydantic.v1 import BaseSettings, validator
 
 
 class Settings(BaseSettings):

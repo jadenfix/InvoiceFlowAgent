@@ -3,7 +3,7 @@ Configuration settings for notification service
 """
 import os
 from typing import List
-from pydantic import BaseSettings
+from pydantic.v1 import BaseSettings
 
 
 class Settings(BaseSettings):
