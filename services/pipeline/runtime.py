@@ -123,7 +123,15 @@ class Pipeline:
             async with conn.transaction():
                 await conn.execute("SELECT pg_advisory_xact_lock(246613)")
                 await conn.execute(SCHEMA)
-        await self.connect_queue()
+        for attempt in range(30):
+            try:
+                await self.connect_queue()
+                break
+            except (OSError, aio_pika.exceptions.AMQPException):
+                if attempt == 29:
+                    await self.pool.close()
+                    raise
+                await asyncio.sleep(2)
         self.tasks.append(asyncio.create_task(self.dispatch_outbox()))
         if role in ("extract", "match"):
             self.tasks.append(asyncio.create_task(self.consume(role)))
