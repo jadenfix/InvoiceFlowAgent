@@ -5,8 +5,8 @@ Handles environment variables, validation, and secure defaults
 import os
 import secrets
 from typing import Optional
-from pydantic import BaseSettings, validator
-from pydantic import PostgresDsn, ValidationError
+from pydantic.v1 import BaseSettings, validator
+from pydantic.v1 import PostgresDsn, ValidationError
 
 
 class Settings(BaseSettings):
