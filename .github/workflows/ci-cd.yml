@@ -1,6 +1,7 @@
 name: InvoiceFlow CI/CD Pipeline
 
 on:
+  workflow_dispatch:
   push:
     branches: [ main, develop ]
   pull_request:
@@ -203,6 +204,7 @@ jobs:
           cd services/auth
           python -m pip install --upgrade pip
           pip install -r requirements.txt
+          pip install flake8 mypy pytest-cov
 
       - name: Lint Python code
         run: |
@@ -281,6 +283,7 @@ jobs:
         run: |
           cd services/match
           pip install -r requirements.txt
+          pip install flake8 black isort "mypy==1.11.2"
 
       - name: Lint match service code
         run: |
