@@ -55,13 +55,13 @@ async def lifespan(app: FastAPI):
     """Yield once; an application exception must never restart its lifespan."""
     logger.info("Starting Exception Review Service")
     try:
-        await initialize_dependencies()
-    except Exception as error:
-        logger.error("Failed to start service", error=str(error))
-        if settings.environment == "production":
-            raise
-        logger.warning("Starting in limited mode due to errors")
-    try:
+        try:
+            await initialize_dependencies()
+        except Exception as error:
+            logger.error("Failed to start service", error=str(error))
+            if settings.environment == "production":
+                raise
+            logger.warning("Starting in limited mode due to errors")
         yield
     finally:
         logger.info("Shutting down Exception Review Service")

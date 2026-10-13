@@ -66,3 +66,19 @@ def test_settings_environment_alias_and_constructor(monkeypatch):
     monkeypatch.setenv("ENVIRONMENT", "testing")
     assert Settings(_env_file=None).environment == "testing"
     assert Settings(environment="development", _env_file=None).environment == "development"
+
+
+@pytest.mark.asyncio
+async def test_production_startup_failure_closes_partial_dependencies(monkeypatch):
+    from unittest.mock import AsyncMock
+    import app.main as module
+
+    monkeypatch.setattr(settings, "environment", "production")
+    initialization = AsyncMock(side_effect=RuntimeError("explicit startup fault fixture"))
+    cleanup = AsyncMock()
+    monkeypatch.setattr(module, "initialize_dependencies", initialization)
+    monkeypatch.setattr(module, "close_dependencies", cleanup)
+    with pytest.raises(RuntimeError, match="startup fault"):
+        async with module.lifespan(None):
+            pytest.fail("Failed production startup must never yield the application")
+    cleanup.assert_awaited_once()
